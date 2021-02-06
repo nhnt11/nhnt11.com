@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Nihanth Subramanya</title>
+    <link rel="stylesheet" href="/styles.css"/>
+    <meta charset="utf-8">
+    <script type="text/javascript">
+      function monday() {
+        let text = "It's safe to go outside!";
+        if ((new Date()).getDay() === 1) {
+          text = "IT'S MONDAY! STAY INSIDE AND GUARD YOUR DOORS!";
+        }
+        document.getElementById("monday").appendChild(document.createTextNode(text));
+      }
+    </script>
+  </head>
+  <body onload="monday()">
+    <p><span class="h1" id="monday"></span></p>
+  </body>
+</html>

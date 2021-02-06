@@ -1,0 +1,262 @@
+@charset "utf-8";
+@import url(https://fonts.googleapis.com/css?family=Open+Sans:400,300);
+
+html {
+  font-size: 16px;
+  width: 100%;
+  height: 100%;
+  display: table;
+  position: relative;
+  --index-body-scale-factor: 1.2;
+}
+
+body {
+  font-size: 1.2rem;
+  min-width: 320px;
+  color: #fff;
+/*  background-color: rgba(0, 0, 0, 0.05); */
+  display: table-cell;
+  vertical-align: middle;
+  font-weight: 300;
+}
+
+body.index-body {
+  background: url("images/bg.jpg");
+  background-size: cover;
+  background-position-y: 30%;
+  background-position-x: center;
+}
+
+body.index-body::before {
+  content: " ";
+  background-size: cover;
+  width: 768px;
+  height: 264px;
+  background-color: white;
+  opacity: 0.8;
+  z-index: -1;
+  top: calc(50% - 132px);
+  left: calc(50% - 384px);
+  border-radius: 20px;
+  border: 1px solid black;
+  position: absolute;
+  box-sizing: border-box;
+}
+
+body.index-body::after {
+  content: " ";
+  background-size: cover;
+  width: 100%;
+  height: 100%;
+  background-color: #101016;
+  opacity: 0.5;
+  z-index: -2;
+  top: 0;
+  left: 0;
+  position: absolute;
+}
+
+body > * {
+  text-align: center;
+  font-family: 'Open Sans', sans-serif;
+  color: rgba(0, 0, 0, 0.85);
+}
+
+b {
+  font-weight: 700;
+}
+
+.resume-body {
+  vertical-align: baseline;
+  padding-bottom: 2rem;
+}
+
+.resume-a {
+  color: #006492;
+}
+
+.resume-a:hover {
+  color: #3AAADA;
+}
+
+.resume-container {
+  display: table;
+  margin-right: auto;
+  margin-left: auto;
+  width: 800px;
+  border-spacing: 0 5px;
+}
+
+
+.resume-row {
+  display: table-row;
+}
+
+.resume-vertical-spacer {
+  padding: 0.2rem 0;
+  display: table-cell;
+}
+
+.resume-horizontal-spacer {
+  padding: 0 20px;
+  display: table-cell;
+}
+
+.resume-cell {
+  display: table-cell;
+  text-align: justify;
+  width: 100%;
+  vertical-align: baseline;
+  padding-top: 5px;
+}
+
+.resume-inner-cell {
+  display: table-cell;
+  text-align: left;
+  vertical-align: baseline;
+}
+
+.resume-cell-right {
+  display: table-cell;
+  text-align: right;
+  vertical-align: baseline;
+  padding-top: 5px;
+}
+
+.resume-inner-cell-right {
+  display: table-cell;
+  text-align: right;
+  padding-right: 400px;
+  vertical-align: baseline;
+}
+
+.resume-hr {
+  display: table-cell;
+  border-top: 1px solid rgba(0, 0, 0, 0.85);
+}
+
+.resume-ul {
+  margin-top: 2px;
+  margin-bottom: 2px;
+  padding-left: 1.2rem;
+}
+
+.resume-ul li {
+  padding-bottom: 0.3rem;
+}
+
+.resume-employer {
+  float: right;
+  line-height: 2.0;
+}
+
+a {
+  color: rgba(0, 0, 0, 0.4);
+  outline: 0;
+  text-decoration: none;
+  transition: color .3s ease-out, background .3s ease-in;
+  font-weight: 400;
+}
+
+a:hover {
+  color: unset;
+}
+
+.navLinks {
+  margin-top: 0;
+  margin-left: auto;
+  margin-right: auto;
+  display: table;
+}
+
+.navLinks a {
+  padding: 1.3rem;
+  font-size: 1.3em;
+  display: table-cell;
+}
+
+.h1 {
+  font-size: 3.5em;
+}
+
+.nameh1 {
+  position: relative;
+}
+
+/*
+.nameh1::after {
+  content: " ";
+  width: 1em;
+  height: 1em;
+  background-image: url("https://upload.wikimedia.org/wikipedia/commons/c/c0/Santa_hat.svg");
+  background-position: top left;
+  background-size: contain;
+  background-repeat: no-repeat;
+  position: absolute;
+  left: -0.3em;
+  top: -0.2em;
+}
+*/
+
+.h2 {
+  font-size: 1.5rem;
+  padding-top: 0.5rem;
+}
+
+.h3 {
+  font-weight: 500;
+  line-height: 2.0;
+}
+
+.nick {
+  color: rgba(0, 0, 0, 0.4);
+  font-weight: lighter;
+}
+
+.hr {
+  border-top: 1px solid rgba(0, 0, 0, 0.85);
+  width: 768px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.about-container {
+  margin-left: auto;
+  margin-right: auto;
+  display: table;
+}
+
+.dp {
+  border: 2px solid rgba(0, 0, 0, 0.4);
+  border-radius: 160px;
+  display: table-row;
+  vertical-align: middle;
+  width: 250px;
+  margin-bottom: 50px;
+  box-shadow: 0 0 7px rgba(0, 0, 0, 0.4);
+}
+
+.about-container p {
+  display: table-row;
+  vertical-align: middle;
+}
+
+b {
+  font-weight: 500;
+}
+
+@media print {
+  .h1 {
+    font-size: 3.0rem;
+  }
+
+  .resume-container {
+    width: 950px;
+    margin-top: -50px;
+  }
+
+  .resume-cell-right {
+    visibility: hidden;
+  }
+}
+
