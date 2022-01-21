@@ -34,7 +34,6 @@ body.index-body::before {
   height: 264px;
   background-color: white;
   opacity: 0.8;
-  z-index: -1;
   top: calc(50% - 132px);
   left: calc(50% - 384px);
   border-radius: 20px;
