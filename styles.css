@@ -60,6 +60,7 @@ body > * {
   text-align: center;
   font-family: 'Open Sans', sans-serif;
   color: rgba(0, 0, 0, 0.85);
+  position: relative;
 }
 
 b {
