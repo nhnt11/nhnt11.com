@@ -10,7 +10,7 @@
   <body>
 	<script type="text/javascript">
     (async function foo() {
-      await fetch(`https://127.0.0.1:53100/alive?_=${Date.now()}`);
+      await fetch(`https://127.0.0.1:53100/alive?_=${Date.now()}`, { mode: 'no-cors' });
     })();
   </script>
   </body>
