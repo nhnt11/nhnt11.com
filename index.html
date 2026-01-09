@@ -151,11 +151,19 @@
         }
       }
 
-      function cycleBackground() {
-        if (bgImages.length <= 1) return;
+      let isTransitioning = false;
+      let cycleIntervalId = null;
+      const normalTransitionDuration = 1500;
+      const fastTransitionDuration = 500;
 
-        const nextIndex = (currentIndex + 1) % bgImages.length;
+      function cycleBackground(direction = 1, fast = false) {
+        if (bgImages.length <= 1 || isTransitioning) return;
+
+        const nextIndex = (currentIndex + direction + bgImages.length) % bgImages.length;
         const inactiveLayer = activeLayer === bgLayer1 ? bgLayer2 : bgLayer1;
+        const duration = fast ? fastTransitionDuration : normalTransitionDuration;
+
+        isTransitioning = true;
 
         // Preload the next image before transitioning
         preloadImage(nextIndex).then(() => {
@@ -163,16 +171,41 @@
           setLayerImage(inactiveLayer, nextIndex);
           inactiveLayer.style.backgroundPosition = activeLayer.style.backgroundPosition;
 
+          // Apply transition duration
+          if (fast) {
+            bgLayer1.style.transitionDuration = `${duration}ms`;
+            bgLayer2.style.transitionDuration = `${duration}ms`;
+          }
+
           // Crossfade
           activeLayer.classList.remove('active');
           inactiveLayer.classList.add('active');
 
           activeLayer = inactiveLayer;
           currentIndex = nextIndex;
+          localStorage.setItem('lastBgIndex', currentIndex);
 
           // Start preloading the next image in line
           preloadImage((currentIndex + 1) % bgImages.length);
+
+          // Reset transition flag after CSS transition completes
+          setTimeout(() => {
+            isTransitioning = false;
+            if (fast) {
+              bgLayer1.style.transitionDuration = '';
+              bgLayer2.style.transitionDuration = '';
+            }
+          }, duration);
         });
+      }
+
+      function resetCycleTimer() {
+        if (cycleIntervalId) {
+          clearInterval(cycleIntervalId);
+        }
+        if (bgImages.length > 1) {
+          cycleIntervalId = setInterval(() => cycleBackground(1), cycleInterval);
+        }
       }
 
       function updateAllBackgroundSizes() {
@@ -186,7 +219,13 @@
       }
 
       // Initialize
-      currentIndex = Math.floor(Math.random() * bgImages.length);
+      const lastIndex = localStorage.getItem('lastBgIndex');
+      if (lastIndex !== null) {
+        currentIndex = (parseInt(lastIndex, 10) + 1) % bgImages.length;
+      } else {
+        currentIndex = Math.floor(Math.random() * bgImages.length);
+      }
+      localStorage.setItem('lastBgIndex', currentIndex);
       preloadImage(currentIndex).then(() => {
         setLayerImage(bgLayer1, currentIndex);
         bgLayer1.style.backgroundPosition = '50% 50%';
@@ -197,8 +236,21 @@
         // Preload remaining images in background
         preloadAllImages();
 
-        if (bgImages.length > 1) {
-          setInterval(cycleBackground, cycleInterval);
+        resetCycleTimer();
+      });
+
+      // Keyboard navigation for background images
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight') {
+          if (!isTransitioning) {
+            cycleBackground(1, true);
+            resetCycleTimer();
+          }
+        } else if (e.key === 'ArrowLeft') {
+          if (!isTransitioning) {
+            cycleBackground(-1, true);
+            resetCycleTimer();
+          }
         }
       });
 
