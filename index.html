@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Nihanth Subramanya</title>
+    <link rel="stylesheet" href="styles.css"/>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Nihanth Subramanya: Your everyday geek, and then some."/>
+  </head>
+  <body class="index-body page-loading">
+    <div class="loading-spinner"></div>
+    <div class="bg-layer bg-layer-1 active"></div>
+    <div class="bg-layer bg-layer-2"></div>
+    <div class="vignette vignette-top-left"></div>
+    <div class="vignette vignette-bottom-right"></div>
+    <div class="name-container">
+      <span class="h1">Nihanth<br>Subramanya</span>
+    </div>
+    <nav class="navLinks">
+      <a href="https://www.x.com/nhnt11" target="_blank" rel="noopener">X</a>
+      <a href="https://nhnt11.medium.com/" target="_blank" rel="noopener">Blog</a>
+      <a href="https://www.instagram.com/imprintsofspacetime" target="_blank" rel="noopener">Photos</a>
+      <a href="https://www.linkedin.com/in/nhnt11" target="_blank" rel="noopener">Resume</a>
+    </nav>
+    <button class="bg-toggle" aria-label="Toggle background view">
+      <svg class="icon-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <polyline points="21 15 16 10 5 21"/>
+      </svg>
+      <svg class="icon-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"/>
+        <line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+    <script>
+      function updateVignettes() {
+        const nameContainer = document.querySelector('.name-container');
+        const navLinks = document.querySelector('.navLinks');
+        const vignetteTL = document.querySelector('.vignette-top-left');
+        const vignetteBR = document.querySelector('.vignette-bottom-right');
+        const padding = 250;
+
+        const nameRect = nameContainer.getBoundingClientRect();
+        const navRect = navLinks.getBoundingClientRect();
+
+        // Top-left vignette: double size so center sits at corner
+        const tlWidth = (nameRect.width + nameRect.left + padding) * 2;
+        const tlHeight = (nameRect.height + nameRect.top + padding) * 2;
+        vignetteTL.style.width = tlWidth + 'px';
+        vignetteTL.style.height = tlHeight + 'px';
+        vignetteTL.style.top = '0';
+        vignetteTL.style.left = '0';
+
+        // Bottom-right vignette: double size so center sits at corner
+        const brWidth = (navRect.width + (window.innerWidth - navRect.right) + padding) * 2;
+        const brHeight = (navRect.height + (window.innerHeight - navRect.bottom) + padding) * 2;
+        vignetteBR.style.width = brWidth + 'px';
+        vignetteBR.style.height = brHeight + 'px';
+        vignetteBR.style.bottom = '0';
+        vignetteBR.style.right = '0';
+      }
+
+      updateVignettes();
+      window.addEventListener('resize', updateVignettes);
+
+      const bgImages = [
+        'https://cdn.nhnt11.com/bg-tuscany.jpg',
+        'https://cdn.nhnt11.com/DSC02365-Edit-Edit-2.jpg',
+        'https://cdn.nhnt11.com/DSC02426-Edit-2.jpg',
+        'https://cdn.nhnt11.com/DSC02446-Edit.jpg',
+        'https://cdn.nhnt11.com/DSC02928-Edit.jpg',
+        'https://cdn.nhnt11.com/DSC02978-Edit-2.jpg',
+        'https://cdn.nhnt11.com/DSC03498-Edit-2.jpg',
+        'https://cdn.nhnt11.com/DSC05664-Edit.jpg',
+        'https://cdn.nhnt11.com/DSC07910.jpg',
+        'https://cdn.nhnt11.com/DSC07914.jpg',
+        'https://cdn.nhnt11.com/DSC08059.jpg',
+      ];
+      const cycleInterval = 5000; // milliseconds between transitions
+
+      const bgLayer1 = document.querySelector('.bg-layer-1');
+      const bgLayer2 = document.querySelector('.bg-layer-2');
+      let currentIndex = 0;
+      let activeLayer = bgLayer1;
+      const imageData = []; // stores { width, height } for each image
+
+      // Preload a single image and get dimensions
+      function preloadImage(index) {
+        return new Promise((resolve) => {
+          if (imageData[index]) {
+            resolve(imageData[index]);
+            return;
+          }
+          const img = new Image();
+          img.onload = function() {
+            imageData[index] = { width: this.naturalWidth, height: this.naturalHeight };
+            resolve(imageData[index]);
+          };
+          img.onerror = () => resolve(null);
+          img.src = bgImages[index];
+        });
+      }
+
+      // Preload all images in background
+      function preloadAllImages() {
+        bgImages.forEach((_, index) => preloadImage(index));
+      }
+
+      function calculateBackgroundSize(imgWidth, imgHeight) {
+        const minOverflow = 1.15; // Minimum 15% overflow on both dimensions
+        const targetMaxOverflow = 1.35; // The larger overflow should be at least 35%
+        const viewWidth = window.innerWidth;
+        const viewHeight = window.innerHeight;
+        const imgAspect = imgWidth / imgHeight;
+        const viewAspect = viewWidth / viewHeight;
+
+        let finalWidth, finalHeight;
+
+        if (imgAspect >= viewAspect) {
+          // Width overflows more (or equal) - target 35% on width
+          finalWidth = viewWidth * targetMaxOverflow;
+          finalHeight = finalWidth / imgAspect;
+
+          // Ensure minimum overflow on height
+          if (finalHeight < viewHeight * minOverflow) {
+            finalHeight = viewHeight * minOverflow;
+            finalWidth = finalHeight * imgAspect;
+          }
+        } else {
+          // Height overflows more - target 35% on height
+          finalHeight = viewHeight * targetMaxOverflow;
+          finalWidth = finalHeight * imgAspect;
+
+          // Ensure minimum overflow on width
+          if (finalWidth < viewWidth * minOverflow) {
+            finalWidth = viewWidth * minOverflow;
+            finalHeight = finalWidth / imgAspect;
+          }
+        }
+
+        return `${finalWidth}px ${finalHeight}px`;
+      }
+
+      function setLayerImage(layer, index) {
+        const src = bgImages[index];
+        const data = imageData[index];
+        layer.style.backgroundImage = `url('${src}')`;
+        if (data) {
+          layer.style.backgroundSize = calculateBackgroundSize(data.width, data.height);
+        }
+      }
+
+      function cycleBackground() {
+        if (bgImages.length <= 1) return;
+
+        const nextIndex = (currentIndex + 1) % bgImages.length;
+        const inactiveLayer = activeLayer === bgLayer1 ? bgLayer2 : bgLayer1;
+
+        // Preload the next image before transitioning
+        preloadImage(nextIndex).then(() => {
+          // Prepare next image on inactive layer
+          setLayerImage(inactiveLayer, nextIndex);
+          inactiveLayer.style.backgroundPosition = activeLayer.style.backgroundPosition;
+
+          // Crossfade
+          activeLayer.classList.remove('active');
+          inactiveLayer.classList.add('active');
+
+          activeLayer = inactiveLayer;
+          currentIndex = nextIndex;
+
+          // Start preloading the next image in line
+          preloadImage((currentIndex + 1) % bgImages.length);
+        });
+      }
+
+      function updateAllBackgroundSizes() {
+        [bgLayer1, bgLayer2].forEach((layer, i) => {
+          const layerIndex = layer === activeLayer ? currentIndex : (currentIndex + 1) % bgImages.length;
+          const data = imageData[layerIndex];
+          if (data) {
+            layer.style.backgroundSize = calculateBackgroundSize(data.width, data.height);
+          }
+        });
+      }
+
+      // Initialize
+      currentIndex = Math.floor(Math.random() * bgImages.length);
+      preloadImage(currentIndex).then(() => {
+        setLayerImage(bgLayer1, currentIndex);
+        bgLayer1.style.backgroundPosition = '50% 50%';
+
+        // Reveal the page
+        document.body.classList.remove('page-loading');
+
+        // Preload remaining images in background
+        preloadAllImages();
+
+        if (bgImages.length > 1) {
+          setInterval(cycleBackground, cycleInterval);
+        }
+      });
+
+      window.addEventListener('resize', updateAllBackgroundSizes);
+
+      // Parallax - only on devices with a mouse
+      if (window.matchMedia('(pointer: fine)').matches) {
+        let firstMove = true;
+        document.addEventListener('mousemove', (e) => {
+          const padding = 50;
+          const viewWidth = window.innerWidth;
+          const viewHeight = window.innerHeight;
+
+          const clampedX = Math.max(padding, Math.min(viewWidth - padding, e.clientX));
+          const clampedY = Math.max(padding, Math.min(viewHeight - padding, e.clientY));
+
+          const percentX = ((clampedX - padding) / (viewWidth - 2 * padding)) * 100;
+          const percentY = ((clampedY - padding) / (viewHeight - 2 * padding)) * 100;
+
+          // Smooth transition on first mouse entry to prevent jerk
+          if (firstMove) {
+            firstMove = false;
+            bgLayer1.style.transition = 'opacity 1.5s ease-in-out, background-position 0.5s ease-out';
+            bgLayer2.style.transition = 'opacity 1.5s ease-in-out, background-position 0.5s ease-out';
+            setTimeout(() => {
+              bgLayer1.style.transition = '';
+              bgLayer2.style.transition = '';
+            }, 500);
+          }
+
+          const position = `${percentX}% ${percentY}%`;
+          bgLayer1.style.backgroundPosition = position;
+          bgLayer2.style.backgroundPosition = position;
+        });
+      } else {
+        // Mobile auto-pan
+        let panAnimationId = null;
+        let panStartTime = null;
+        let panParams = null;
+        let currentX = 50; // Track current position
+        let currentY = 50;
+        let isTouching = false;
+
+        function initPanParams(isFirst) {
+          const data = imageData[currentIndex];
+          if (!data) return null;
+
+          const direction = Math.random() < 0.5 ? 1 : -1; // Random left/right direction
+          const angleOffset = (Math.random() - 0.5) * 30; // Random angle: -15 to +15 degrees
+          const angleRad = angleOffset * Math.PI / 180;
+
+          // Always pan horizontally with slight vertical drift from angle
+          const speedX = 0.0008; // ~0.8% per second horizontally
+          const speedY = speedX * Math.tan(angleRad);
+
+          return {
+            direction,
+            speedX,
+            speedY,
+            startX: isFirst ? 50 : currentX,
+            startY: isFirst ? 50 : currentY
+          };
+        }
+
+        function updatePosition() {
+          const position = `${currentX}% ${currentY}%`;
+          bgLayer1.style.backgroundPosition = position;
+          bgLayer2.style.backgroundPosition = position;
+        }
+
+        function animatePan(timestamp) {
+          if (!panStartTime) panStartTime = timestamp;
+          if (!panParams) {
+            panParams = initPanParams(true);
+            if (!panParams) {
+              panAnimationId = requestAnimationFrame(animatePan);
+              return;
+            }
+          }
+
+          const elapsed = timestamp - panStartTime;
+
+          const deltaX = elapsed * panParams.speedX * panParams.direction;
+          const deltaY = elapsed * panParams.speedY * panParams.direction;
+
+          currentX = Math.max(0, Math.min(100, panParams.startX + deltaX));
+          currentY = Math.max(0, Math.min(100, panParams.startY + deltaY));
+
+          updatePosition();
+
+          panAnimationId = requestAnimationFrame(animatePan);
+        }
+
+        function startNewPan(isFirst) {
+          panStartTime = null;
+          panParams = initPanParams(isFirst);
+          if (panAnimationId) cancelAnimationFrame(panAnimationId);
+          panAnimationId = requestAnimationFrame(animatePan);
+        }
+
+        // Touch panning
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let panStartX = 0;
+        let panStartY = 0;
+        let hasPanned = false;
+        let wasRevealedBeforePan = false;
+        const tapThreshold = 10; // pixels
+
+        document.addEventListener('touchstart', (e) => {
+          if (e.touches.length !== 1) return;
+          // Don't intercept touches on links or buttons
+          if (e.target.closest('a, button')) return;
+          isTouching = true;
+          hasPanned = false;
+          wasRevealedBeforePan = document.body.classList.contains('bg-reveal');
+          touchStartX = e.touches[0].clientX;
+          touchStartY = e.touches[0].clientY;
+          panStartX = currentX;
+          panStartY = currentY;
+          // Disable background-position transition for immediate response, but keep opacity for crossfade
+          bgLayer1.style.transition = 'opacity 1.5s ease-in-out';
+          bgLayer2.style.transition = 'opacity 1.5s ease-in-out';
+          // Cancel auto-pan animation during touch
+          if (panAnimationId) {
+            cancelAnimationFrame(panAnimationId);
+            panAnimationId = null;
+          }
+        }, { passive: true });
+
+        document.addEventListener('touchmove', (e) => {
+          if (!isTouching || e.touches.length !== 1) return;
+
+          // Prevent pull-to-refresh on mobile Safari
+          e.preventDefault();
+
+          const touchX = e.touches[0].clientX;
+          const touchY = e.touches[0].clientY;
+
+          // Check if we've moved enough to consider it a pan (only check once)
+          if (!hasPanned) {
+            const pixelDeltaX = Math.abs(touchX - touchStartX);
+            const pixelDeltaY = Math.abs(touchY - touchStartY);
+            if (pixelDeltaX > tapThreshold || pixelDeltaY > tapThreshold) {
+              hasPanned = true;
+              // Reveal background while panning
+              document.body.classList.add('bg-reveal');
+            }
+          }
+
+          // Convert pixel movement to percentage (invert for natural drag feel)
+          const deltaX = ((touchStartX - touchX) / window.innerWidth) * 100;
+          const deltaY = ((touchStartY - touchY) / window.innerHeight) * 100;
+
+          currentX = Math.max(0, Math.min(100, panStartX + deltaX));
+          currentY = Math.max(0, Math.min(100, panStartY + deltaY));
+
+          updatePosition();
+        }, { passive: false });
+
+        function handleTouchEnd() {
+          if (!isTouching) return;
+          isTouching = false;
+
+          // Restore transitions
+          bgLayer1.style.transition = '';
+          bgLayer2.style.transition = '';
+
+          if (hasPanned) {
+            // Restore previous state after panning
+            if (wasRevealedBeforePan) {
+              document.body.classList.add('bg-reveal');
+            } else {
+              document.body.classList.remove('bg-reveal');
+            }
+          } else {
+            // Tap: toggle content visibility
+            document.body.classList.toggle('bg-reveal');
+          }
+
+          // Resume auto-pan from current position
+          startNewPan(false);
+        }
+
+        document.addEventListener('touchend', handleTouchEnd);
+        document.addEventListener('touchcancel', handleTouchEnd);
+
+        // Start panning after images load
+        const originalCycleBackground = cycleBackground;
+        cycleBackground = function() {
+          originalCycleBackground();
+          if (!isTouching) startNewPan(false);
+        };
+
+        // Initial pan after preload
+        const checkAndStartPan = setInterval(() => {
+          if (imageData[currentIndex]) {
+            clearInterval(checkAndStartPan);
+            startNewPan(true);
+          }
+        }, 100);
+      }
+
+      document.querySelector('.bg-toggle').addEventListener('click', () => {
+        document.body.classList.toggle('bg-reveal');
+      });
+    </script>
+  </body>
+</html>
+
