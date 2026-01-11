@@ -427,8 +427,24 @@
               document.body.classList.remove('bg-reveal');
             }
           } else {
-            // Tap: toggle content visibility
-            document.body.classList.toggle('bg-reveal');
+            // Tap: check if on left/right edge to cycle background
+            const edgeZone = window.innerWidth * 0.15; // 15% of screen width
+            if (touchStartX < edgeZone) {
+              // Left edge tap: go to previous image
+              if (!isTransitioning) {
+                cycleBackground(-1, true);
+                resetCycleTimer();
+              }
+            } else if (touchStartX > window.innerWidth - edgeZone) {
+              // Right edge tap: go to next image
+              if (!isTransitioning) {
+                cycleBackground(1, true);
+                resetCycleTimer();
+              }
+            } else {
+              // Center tap: toggle content visibility
+              document.body.classList.toggle('bg-reveal');
+            }
           }
 
           // Resume auto-pan from current position
