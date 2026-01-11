@@ -456,8 +456,8 @@
 
         // Start panning after images load
         const originalCycleBackground = cycleBackground;
-        cycleBackground = function() {
-          originalCycleBackground();
+        cycleBackground = function(direction = 1, fast = false) {
+          originalCycleBackground(direction, fast);
           if (!isTouching) startNewPan(false);
         };
 
