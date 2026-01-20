@@ -206,57 +206,6 @@ a:hover {
   transition: transform 0s;
 }
 
-.bg-toggle {
-  position: fixed;
-  bottom: 3rem;
-  left: 3rem;
-  z-index: 10;
-  width: 44px;
-  height: 44px;
-  border: none;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(10px);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-}
-
-@media (pointer: coarse) {
-  .bg-toggle {
-    display: none;
-  }
-}
-
-.bg-toggle:hover {
-  background: rgba(0, 0, 0, 0.5);
-  transform: scale(1.1);
-}
-
-.bg-toggle svg {
-  width: 22px;
-  height: 22px;
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.bg-toggle .icon-show {
-  display: block;
-}
-
-.bg-toggle .icon-hide {
-  display: none;
-}
-
-.bg-reveal .bg-toggle .icon-show {
-  display: none;
-}
-
-.bg-reveal .bg-toggle .icon-hide {
-  display: block;
-}
-
 .name-container,
 .navLinks,
 .vignette {
@@ -278,8 +227,7 @@ a:hover {
 .page-loading .bg-layer,
 .page-loading .name-container,
 .page-loading .navLinks,
-.page-loading .vignette,
-.page-loading .bg-toggle {
+.page-loading .vignette {
   opacity: 0 !important;
 }
 

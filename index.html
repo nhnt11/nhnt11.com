@@ -20,19 +20,8 @@
       <a href="https://www.x.com/nhnt11" target="_blank" rel="noopener">X</a>
       <a href="https://nhnt11.medium.com/" target="_blank" rel="noopener">Blog</a>
       <a href="https://www.instagram.com/imprintsofspacetime" target="_blank" rel="noopener">Photos</a>
-      <a href="https://www.linkedin.com/in/nhnt11" target="_blank" rel="noopener">Resume</a>
+      <a href="https://www.linkedin.com/in/nhnt11" target="_blank" rel="noopener">Work</a>
     </nav>
-    <button class="bg-toggle" aria-label="Toggle background view">
-      <svg class="icon-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-        <circle cx="8.5" cy="8.5" r="1.5"/>
-        <polyline points="21 15 16 10 5 21"/>
-      </svg>
-      <svg class="icon-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="18" y1="6" x2="6" y2="18"/>
-        <line x1="6" y1="6" x2="18" y2="18"/>
-      </svg>
-    </button>
     <script>
       function updateVignettes() {
         const nameContainer = document.querySelector('.name-container');
@@ -470,9 +459,14 @@
         }, 100);
       }
 
-      document.querySelector('.bg-toggle').addEventListener('click', () => {
-        document.body.classList.toggle('bg-reveal');
-      });
+      // Desktop: click anywhere to toggle background reveal (secret feature)
+      if (window.matchMedia('(pointer: fine)').matches) {
+        document.addEventListener('click', (e) => {
+          // Don't toggle if clicking on interactive elements
+          if (e.target.closest('a, button, input, textarea, select')) return;
+          document.body.classList.toggle('bg-reveal');
+        });
+      }
     </script>
   </body>
 </html>
