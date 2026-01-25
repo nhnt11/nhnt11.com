@@ -58,6 +58,8 @@ body {
   color: var(--white);
   background: var(--black);
   font-weight: var(--font-weight-light);
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 body:not(.dream-body) > * {
@@ -138,6 +140,73 @@ body.index-body {
   top: var(--edge-margin);
   left: var(--edge-margin);
   z-index: 2;
+}
+
+.name-link {
+  position: relative;
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.name-link:hover {
+  color: inherit;
+}
+
+.name-text {
+  display: block;
+  line-height: 1.1;
+}
+
+.name-line {
+  display: block;
+}
+
+.name-dream,
+.name-slice {
+  display: block;
+  line-height: 1;
+}
+
+.name-dream,
+.name-slice {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  font-family: 'Shrikhand', system-ui;
+  letter-spacing: 0.1em;
+  text-transform: lowercase;
+  pointer-events: none;
+}
+
+.name-slice {
+  --dream-x: 0px;
+  --dream-y: 0px;
+  --glitch-x: 0px;
+  --glitch-skew: 0deg;
+}
+
+.name-slice[data-slice="0"] { clip-path: inset(0% 0 75% 0); }
+.name-slice[data-slice="1"] { clip-path: inset(25% 0 50% 0); }
+.name-slice[data-slice="2"] { clip-path: inset(50% 0 25% 0); }
+.name-slice[data-slice="3"] { clip-path: inset(75% 0 0% 0); }
+
+.name-slice.glitching {
+  opacity: 1;
+  animation: name-slice-glitch 75ms steps(2, end) infinite;
+}
+
+.name-link.glitching .name-text {
+  animation: text-jitter 75ms steps(2, end) infinite;
+}
+
+.name-link.glitching .name-dream {
+  opacity: 1;
+}
+
+.name-link.glitching .name-text {
+  opacity: 0;
 }
 
 .nav-links {
@@ -535,6 +604,12 @@ body.index-body {
   0% { transform: translateX(var(--glitch-x)) skewX(var(--glitch-skew)); }
   50% { transform: translateX(calc(var(--glitch-x) * -0.5)) skewX(calc(var(--glitch-skew) * -1)); }
   100% { transform: translateX(var(--glitch-x)) skewX(var(--glitch-skew)); }
+}
+
+@keyframes name-slice-glitch {
+  0% { transform: translate(var(--dream-x), var(--dream-y)) translateX(var(--glitch-x)) skewX(var(--glitch-skew)); }
+  50% { transform: translate(var(--dream-x), var(--dream-y)) translateX(calc(var(--glitch-x) * -0.5)) skewX(calc(var(--glitch-skew) * -1)); }
+  100% { transform: translate(var(--dream-x), var(--dream-y)) translateX(var(--glitch-x)) skewX(var(--glitch-skew)); }
 }
 
 @keyframes text-jitter {

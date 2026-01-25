@@ -36,6 +36,7 @@ Vignette.init(DOM);
 
 Gallery.init(DOM).then(() => {
   initKeyboard();
+  NameGlitch.init();
 
   const hasPointer = window.matchMedia('(pointer: fine)').matches;
   if (hasPointer) {
