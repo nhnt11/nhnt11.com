@@ -2,11 +2,11 @@
 
 EFFECTS.waves = {
   params: () => ({
+    palette: randomPalette(),
     frequency: rand(20, 50),
     speed: rand(2, 5),
     numSources: Math.floor(rand(3, 6)),
-    colorSpeed: rand(0.03, 0.08),
-    saturation: rand(0.7, 1.0)
+    colorSpeed: rand(0.03, 0.08)
   }),
   shader: `
     ${GLSL_COMMON}
@@ -14,10 +14,9 @@ EFFECTS.waves = {
     uniform float u_speed;
     uniform float u_numSources;
     uniform float u_colorSpeed;
-    uniform float u_saturation;
 
     void main() {
-      vec2 uv = v_uv;
+      vec2 uv = glitchUV(v_uv);
       uv.x *= u_resolution.x / u_resolution.y;
 
       float v = 0.0;
@@ -33,7 +32,7 @@ EFFECTS.waves = {
       }
       v /= u_numSources;
 
-      vec3 col = hsv2rgb(vec3(v * 0.5 + 0.5 + u_time * u_colorSpeed, u_saturation, 0.5 + v * 0.2));
+      vec3 col = palette(v * 0.5 + 0.5 + u_time * u_colorSpeed, 0.5 + v * 0.2);
       gl_FragColor = vec4(col, 1.0);
     }
   `

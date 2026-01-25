@@ -2,6 +2,7 @@
 
 EFFECTS.fractal = {
   params: () => ({
+    palette: randomPalette(),
     rotSpeed: rand(0.08, 0.15),
     zoomBase: rand(1.25, 1.75),
     zoomAmt: rand(0.15, 0.3),
@@ -21,7 +22,7 @@ EFFECTS.fractal = {
     void main() {
       float zoom = u_zoomBase + u_zoomAmt * sin(u_time * u_zoomSpeed);
 
-      vec2 uv = (v_uv - 0.5) * zoom;
+      vec2 uv = (glitchUV(v_uv) - 0.5) * zoom;
       uv.x *= u_resolution.x / u_resolution.y;
 
       float angle = u_time * u_rotSpeed;
@@ -49,17 +50,15 @@ EFFECTS.fractal = {
         t = (iter + 1.0 - nu) / u_maxIter;
       }
 
-      float hue = t * 2.0 + u_time * u_colorSpeed + 0.55;
-      float sat = 0.85 + 0.15 * t;
+      float colorT = t * 2.0 + u_time * u_colorSpeed + 0.55;
       float val = 0.5 + 0.5 * t;
 
       if (iter >= u_maxIter) {
-        hue = u_time * u_colorSpeed + 0.7;
-        sat = 0.9;
+        colorT = u_time * u_colorSpeed + 0.7;
         val = 0.15;
       }
 
-      vec3 col = hsv2rgb(vec3(hue, sat, val));
+      vec3 col = palette(colorT, val);
       gl_FragColor = vec4(col, 1.0);
     }
   `

@@ -2,11 +2,11 @@
 
 EFFECTS.voronoi = {
   params: () => ({
+    palette: randomPalette(),
     cellCount: Math.floor(rand(8, 20)),
     speed: rand(0.3, 0.8),
     colorSpeed: rand(0.03, 0.08),
-    edgeWidth: rand(0.02, 0.06),
-    saturation: rand(0.7, 1.0)
+    edgeWidth: rand(0.02, 0.06)
   }),
   shader: `
     ${GLSL_COMMON}
@@ -14,10 +14,9 @@ EFFECTS.voronoi = {
     uniform float u_speed;
     uniform float u_colorSpeed;
     uniform float u_edgeWidth;
-    uniform float u_saturation;
 
     void main() {
-      vec2 uv = v_uv;
+      vec2 uv = glitchUV(v_uv);
       uv.x *= u_resolution.x / u_resolution.y;
       uv *= u_cellCount;
 
@@ -48,10 +47,10 @@ EFFECTS.voronoi = {
       float edge = secondMinDist - minDist;
       float edgeLine = 1.0 - smoothstep(0.0, u_edgeWidth, edge);
 
-      float hue = cellId + u_time * u_colorSpeed;
+      float t = cellId + u_time * u_colorSpeed;
       float val = 0.5 + 0.3 * (1.0 - minDist);
 
-      vec3 col = hsv2rgb(vec3(hue, u_saturation, val));
+      vec3 col = palette(t, val);
       col = mix(col, vec3(1.0), edgeLine * 0.8);
 
       gl_FragColor = vec4(col, 1.0);

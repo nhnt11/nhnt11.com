@@ -4,3 +4,5 @@
 const rand = (min, max) => min + Math.random() * (max - min);
 
 const EFFECTS = {};
+
+// Re-export palette utilities from common.js for use in effects

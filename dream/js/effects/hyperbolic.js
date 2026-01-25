@@ -2,6 +2,7 @@
 
 EFFECTS.hyperbolic = {
   params: () => ({
+    palette: randomPalette(),
     pValue: Math.floor(rand(4, 8)),
     qValue: Math.floor(rand(4, 8)),
     rotSpeed: rand(0.05, 0.15),
@@ -18,7 +19,7 @@ EFFECTS.hyperbolic = {
 
     void main() {
       float aspect = u_resolution.x / u_resolution.y;
-      vec2 uv = (v_uv - 0.5) * 2.0;
+      vec2 uv = (glitchUV(v_uv) - 0.5) * 2.0;
       uv.x *= aspect;
 
       float maxExtent = max(aspect, 1.0);
@@ -42,11 +43,10 @@ EFFECTS.hyperbolic = {
 
       float pattern = sin(tileTheta * u_pValue * 2.0) * sin(tileRho * u_qValue);
 
-      float hue = rho * 0.2 + theta / TAU + u_time * u_colorSpeed;
-      float sat = 0.8 + 0.2 * pattern;
+      float t = rho * 0.2 + theta / TAU + u_time * u_colorSpeed;
       float val = 0.4 + 0.4 * (1.0 - r) + 0.2 * pattern;
 
-      vec3 col = hsv2rgb(vec3(hue, sat, val));
+      vec3 col = palette(t, val);
       col += vec3(0.3) * smoothstep(0.8, 1.0, r);
 
       gl_FragColor = vec4(col, 1.0);

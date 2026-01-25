@@ -60,6 +60,7 @@ const Visuals = (function() {
   let program = programs[currentEffect];
 
   const startTime = performance.now();
+  let glitchIntensity = 0;
 
   // Debug mode
   const debugEl = document.getElementById('debug');
@@ -88,6 +89,11 @@ const Visuals = (function() {
     const key = keys[selectedParamIndex];
     const value = currentParams[key];
     if (typeof value === 'number') {
+      // Special handling for palette - cycle through available palettes
+      if (key === 'palette') {
+        currentParams[key] = (value + delta + PALETTE_COUNT) % PALETTE_COUNT;
+        return;
+      }
       let step;
       if (Math.abs(value) < 0.001) step = 0.0002;
       else if (Math.abs(value) < 0.01) step = 0.001;
@@ -98,12 +104,18 @@ const Visuals = (function() {
     }
   }
 
+  const PALETTE_NAMES = [
+    'Lava', 'Purple', 'Ocean', 'Sunset',
+    'Toxic', 'Ice', 'Neon', 'Ember'
+  ];
+
   function formatParams(params) {
     const keys = Object.keys(params);
     return keys.map((k, i) => {
       const v = params[k];
       const prefix = debugMode && i === selectedParamIndex ? '> ' : '  ';
       if (typeof v !== 'number') return `${prefix}${k}: ${v}`;
+      if (k === 'palette') return `${prefix}${k}: ${PALETTE_NAMES[Math.floor(v)] || v}`;
       if (Math.abs(v) < 0.01 && v !== 0) return `${prefix}${k}: ${v.toExponential(2)}`;
       return `${prefix}${k}: ${v.toFixed(3)}`;
     }).join('\n');
@@ -195,6 +207,11 @@ const Visuals = (function() {
 
     gl.uniform1f(gl.getUniformLocation(program, 'u_time'), t);
     gl.uniform2f(gl.getUniformLocation(program, 'u_resolution'), canvas.width, canvas.height);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_glitch'), glitchIntensity);
+
+    // Decay glitch intensity
+    glitchIntensity *= 0.85;
+    if (glitchIntensity < 0.01) glitchIntensity = 0;
 
     for (const [key, value] of Object.entries(currentParams)) {
       const loc = gl.getUniformLocation(program, `u_${key}`);
@@ -222,5 +239,15 @@ const Visuals = (function() {
     });
   }
 
-  return { init };
+  function randomizePalette() {
+    if (currentParams.palette !== undefined) {
+      currentParams.palette = Math.floor(Math.random() * PALETTE_COUNT);
+    }
+  }
+
+  function triggerGlitch() {
+    glitchIntensity = 1;
+  }
+
+  return { init, randomizePalette, triggerGlitch };
 })();

@@ -5,10 +5,38 @@ const Glitch = (function() {
   const slices = document.querySelectorAll('.dream-slice');
 
   let isGlitching = false;
+  let autoGlitchTimer = null;
+  let lastGlitchChangedPalette = false;
+  let manualPaletteChangeBlocksNext = false;
+  let manualStrokeChangedPalette = false;
+  let mouseIdleTimer = null;
 
-  function trigger(scheduleNext = true) {
-    if (isGlitching) return;
-    isGlitching = true;
+  function onMouseIdle() {
+    manualStrokeChangedPalette = false;
+  }
+
+  function resetMouseIdleTimer() {
+    if (mouseIdleTimer) clearTimeout(mouseIdleTimer);
+    mouseIdleTimer = setTimeout(onMouseIdle, 300);
+  }
+
+  function doGlitch(shouldFreeze, isManual) {
+    // 50% chance to randomize the color palette and glitch the background
+    // But never two palette changes in a row
+    // And if manual glitch changed palette, block the next auto glitch from doing so
+    // And only one palette change per mouse stroke
+    const blockedByManual = !isManual && manualPaletteChangeBlocksNext;
+    const blockedByStroke = isManual && manualStrokeChangedPalette;
+    if (!lastGlitchChangedPalette && !blockedByManual && !blockedByStroke && Math.random() < 0.5) {
+      Visuals.randomizePalette();
+      Visuals.triggerGlitch();
+      lastGlitchChangedPalette = true;
+      manualPaletteChangeBlocksNext = isManual;
+      if (isManual) manualStrokeChangedPalette = true;
+    } else {
+      lastGlitchChangedPalette = false;
+      if (!isManual) manualPaletteChangeBlocksNext = false;
+    }
 
     // Clear any previous frozen state and set up new glitch
     slices.forEach(slice => {
@@ -24,9 +52,6 @@ const Glitch = (function() {
     });
 
     container.classList.add('glitching');
-
-    // User-triggered glitches freeze, scheduled glitches don't
-    const shouldFreeze = !scheduleNext;
 
     setTimeout(() => {
       container.classList.remove('glitching');
@@ -44,17 +69,32 @@ const Glitch = (function() {
       });
 
       isGlitching = false;
-      if (scheduleNext) scheduleNext_();
     }, 100 + Math.random() * 200);
   }
 
-  function scheduleNext_() {
-    setTimeout(() => trigger(true), 800 + Math.random() * 1700);
+  function trigger(scheduleNext = true) {
+    if (isGlitching) return;
+    isGlitching = true;
+    const isManual = !scheduleNext;
+    if (isManual) resetMouseIdleTimer();
+    doGlitch(isManual, isManual);
+  }
+
+  function autoGlitch() {
+    if (!isGlitching) {
+      isGlitching = true;
+      doGlitch(false, false);
+    }
+    scheduleAutoGlitch();
+  }
+
+  function scheduleAutoGlitch() {
+    autoGlitchTimer = setTimeout(autoGlitch, 800 + Math.random() * 1700);
   }
 
   function init() {
     container.addEventListener('mousemove', () => trigger(false));
-    setTimeout(scheduleNext_, 5500);
+    setTimeout(scheduleAutoGlitch, 5500);
   }
 
   return { init, trigger };

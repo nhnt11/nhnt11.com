@@ -2,10 +2,11 @@
 
 EFFECTS.electric = {
   params: () => ({
+    palette: randomPalette(),
     branches: Math.floor(rand(5, 9)),
     speed: rand(0.3, 0.8),
-    intensity: rand(0.6, 1.0),
-    thickness: rand(0.025, 0.045),
+    intensity: rand(1.2, 1.8),
+    thickness: rand(0.035, 0.06),
     colorSpeed: rand(0.02, 0.06)
   }),
   shader: `
@@ -53,7 +54,7 @@ EFFECTS.electric = {
     }
 
     void main() {
-      vec2 uv = v_uv;
+      vec2 uv = glitchUV(v_uv);
       uv.x *= u_resolution.x / u_resolution.y;
 
       float t = u_time;
@@ -81,16 +82,16 @@ EFFECTS.electric = {
 
         float bolt = lightning(uv, fi * 13.7, t + fi * 0.5, center, angle) * pulse;
 
-        float hue = 0.58 + fi * 0.035 + sin(t * 0.2) * 0.05 + u_time * u_colorSpeed;
-        vec3 boltCol = hsv2rgb(vec3(hue, 0.9, 1.0));
+        float colorT = 0.58 + fi * 0.035 + sin(t * 0.2) * 0.05 + u_time * u_colorSpeed;
+        vec3 boltCol = palette(colorT, 1.0);
 
         col += bolt * boltCol;
       }
 
-      col = pow(col, vec3(0.7));
+      col = pow(col, vec3(0.5));
 
       float ambientPulse = 0.02 + 0.01 * sin(t * 0.5);
-      col += vec3(ambientPulse * 0.8, ambientPulse * 0.4, ambientPulse * 1.2);
+      col += palette(0.5, ambientPulse);
 
       gl_FragColor = vec4(col, 1.0);
     }

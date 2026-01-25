@@ -2,6 +2,7 @@
 
 EFFECTS.aurora = {
   params: () => ({
+    palette: randomPalette(),
     layers: Math.floor(rand(3, 6)),
     speed: rand(0.2, 0.5),
     waveFreq: rand(2, 5),
@@ -17,7 +18,7 @@ EFFECTS.aurora = {
     uniform float u_colorSpeed;
 
     void main() {
-      vec2 uv = v_uv;
+      vec2 uv = glitchUV(v_uv);
       uv.x *= u_resolution.x / u_resolution.y;
 
       vec3 col = vec3(0.0);
@@ -40,8 +41,8 @@ EFFECTS.aurora = {
 
         brightness *= 0.7 + 0.3 * sin(uv.x * 20.0 + u_time * 2.0 + fi);
 
-        float hue = 0.4 + fi * 0.08 + uv.x * 0.1 + u_time * u_colorSpeed;
-        vec3 layerCol = hsv2rgb(vec3(hue, 0.7, brightness));
+        float t = 0.4 + fi * 0.08 + uv.x * 0.1 + u_time * u_colorSpeed;
+        vec3 layerCol = palette(t, brightness);
 
         col += layerCol * (1.0 - fi / u_layers * 0.5);
       }

@@ -2,6 +2,7 @@
 
 EFFECTS.moire = {
   params: () => ({
+    palette: randomPalette(),
     lineFreq: rand(40, 80),
     rotSpeed: rand(0.1, 0.3),
     offset: rand(0.1, 0.3),
@@ -23,7 +24,7 @@ EFFECTS.moire = {
     }
 
     void main() {
-      vec2 uv = v_uv - 0.5;
+      vec2 uv = glitchUV(v_uv) - 0.5;
       uv.x *= u_resolution.x / u_resolution.y;
 
       float v = 0.0;
@@ -43,8 +44,8 @@ EFFECTS.moire = {
       float circles = sin(length(uv) * u_lineFreq * 0.5 - u_time) * 0.5 + 0.5;
       v = v * 0.7 + circles * 0.3;
 
-      float hue = v + u_time * u_colorSpeed;
-      vec3 col = hsv2rgb(vec3(hue, 0.85, 0.5 + 0.3 * v));
+      float t = v + u_time * u_colorSpeed;
+      vec3 col = palette(t, 0.5 + 0.3 * v);
 
       gl_FragColor = vec4(col, 1.0);
     }

@@ -2,11 +2,11 @@
 
 EFFECTS.metaballs = {
   params: () => ({
+    palette: randomPalette(),
     numBalls: Math.floor(rand(5, 10)),
     threshold: rand(0.8, 1.2),
     speed: rand(0.4, 1.0),
-    colorSpeed: rand(0.02, 0.06),
-    saturation: rand(0.7, 1.0)
+    colorSpeed: rand(0.02, 0.06)
   }),
   shader: `
     ${GLSL_COMMON}
@@ -14,10 +14,9 @@ EFFECTS.metaballs = {
     uniform float u_threshold;
     uniform float u_speed;
     uniform float u_colorSpeed;
-    uniform float u_saturation;
 
     void main() {
-      vec2 uv = v_uv - 0.5;
+      vec2 uv = glitchUV(v_uv) - 0.5;
       uv.x *= u_resolution.x / u_resolution.y;
 
       float sum = 0.0;
@@ -45,8 +44,8 @@ EFFECTS.metaballs = {
       float edge = smoothstep(u_threshold - 0.1, u_threshold, sum) -
                    smoothstep(u_threshold, u_threshold + 0.1, sum);
 
-      float hue = colorMix + u_time * u_colorSpeed;
-      vec3 col = hsv2rgb(vec3(hue, u_saturation, 0.5 + 0.3 * v));
+      float t = colorMix + u_time * u_colorSpeed;
+      vec3 col = palette(t, 0.5 + 0.3 * v);
       col += edge * 0.5;
 
       gl_FragColor = vec4(col, 1.0);
