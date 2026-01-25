@@ -1,5 +1,6 @@
 @charset "utf-8";
 @import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Rubik+Glitch&family=Shrikhand&family=Fascinate+Inline&display=swap');
 
 html {
   font-size: 16px;
@@ -358,3 +359,138 @@ b {
   }
 }
 
+/* Dream page styles */
+.dream-body {
+  margin: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+.dream-bg {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  min-width: 100%;
+  min-height: 100%;
+  width: auto;
+  height: auto;
+  transform: translate(-50%, -50%);
+  object-fit: cover;
+  z-index: 0;
+  background: #000;
+}
+
+.dream-debug {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 100;
+  font-family: 'Geist Mono', monospace;
+  font-size: 12px;
+  color: #0f0;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 12px 16px;
+  border-radius: 4px;
+  white-space: pre;
+  pointer-events: none;
+}
+
+.dream-overlay {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  mix-blend-mode: difference;
+  z-index: 1;
+  opacity: 0;
+  animation: fadeInMask 4s ease-in-out forwards;
+  animation-delay: 1.5s;
+}
+
+.dream-text-container {
+  position: relative;
+  font-family: 'Rubik Glitch', system-ui;
+}
+
+.dream-text,
+.dream-slice {
+  color: #000;
+  font-family: inherit;
+  font-size: clamp(8rem, 40vw, 24rem);
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: lowercase;
+}
+
+.dream-slice {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  --glitch-x: 0px;
+  --glitch-skew: 0deg;
+}
+
+/* Each slice shows a different horizontal band */
+.dream-slice[data-slice="0"] { clip-path: inset(0% 0 75% 0); }
+.dream-slice[data-slice="1"] { clip-path: inset(25% 0 50% 0); }
+.dream-slice[data-slice="2"] { clip-path: inset(50% 0 25% 0); }
+.dream-slice[data-slice="3"] { clip-path: inset(75% 0 0% 0); }
+
+/* When glitching, slices become visible and shift */
+.dream-slice.glitching {
+  opacity: 1;
+  animation: slice-glitch 50ms steps(2, end) infinite;
+  transform: translateX(var(--glitch-x)) skewX(var(--glitch-skew));
+}
+
+/* Add RGB split to glitching slices */
+.dream-slice.glitching::before,
+.dream-slice.glitching::after {
+  content: 'dream';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.dream-slice.glitching::before {
+  color: #0ff;
+  transform: translateX(-6px);
+  opacity: 0.7;
+  z-index: -1;
+}
+
+.dream-slice.glitching::after {
+  color: #f0f;
+  transform: translateX(6px);
+  opacity: 0.7;
+  z-index: -1;
+}
+
+/* Main text jitter when container glitches */
+.dream-text-container.glitching .dream-text {
+  animation: text-jitter 50ms steps(2, end) infinite;
+}
+
+@keyframes slice-glitch {
+  0% { transform: translateX(var(--glitch-x)) skewX(var(--glitch-skew)); }
+  50% { transform: translateX(calc(var(--glitch-x) * -0.5)) skewX(calc(var(--glitch-skew) * -1)); }
+  100% { transform: translateX(var(--glitch-x)) skewX(var(--glitch-skew)); }
+}
+
+@keyframes text-jitter {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(-4px, 2px); }
+  50% { transform: translate(2px, -2px); }
+  75% { transform: translate(-2px, -2px); }
+  100% { transform: translate(4px, 2px); }
+}
+
+@keyframes fadeInMask {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
