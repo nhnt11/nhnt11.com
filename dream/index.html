@@ -110,6 +110,9 @@
         uniform float u_time;
         uniform vec2 u_resolution;
 
+        #define PI  3.14159265359
+        #define TAU 6.28318530718
+
         vec3 hsv2rgb(vec3 c) {
           vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
           vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
@@ -169,8 +172,8 @@
               float angle = atan(uv.y, uv.x);
               float dist = length(uv);
 
-              float segAngle = 6.28318 / u_segments;
-              angle = abs(mod(angle + 3.14159, segAngle) - segAngle * 0.5);
+              float segAngle = TAU / u_segments;
+              angle = abs(mod(angle + PI, segAngle) - segAngle * 0.5);
 
               vec2 p = vec2(cos(angle), sin(angle)) * dist * u_zoom + u_time * u_speed;
               float v = fbm(p, 4);
@@ -237,11 +240,11 @@
               float angle = atan(uv.y, uv.x);
 
               // Normalize angle to 0-1 range for seamless wrapping
-              float tu = (angle + 3.14159) / 6.28318;
+              float tu = (angle + PI) / TAU;
               float tv = 1.0 / dist + u_time * u_zoomSpeed;
 
               // Use integer frequency to ensure seamless wrap around circle
-              float pattern = sin(tu * 6.28318 * u_spiralFreq + u_time * u_twist) * sin(tv * 2.0);
+              float pattern = sin(tu * TAU * u_spiralFreq + u_time * u_twist) * sin(tv * 2.0);
 
               // Integer multiplier for hue to wrap seamlessly
               float hue = fract(tu * u_spiralFreq + tv * 0.1 + u_time * u_colorSpeed);
@@ -274,7 +277,7 @@
 
               vec2 p = uv * u_scale;
               for (int i = 0; i < 8; i++) {
-                float angle = fbm(p + u_time * u_flowSpeed, 5) * 6.28318;
+                float angle = fbm(p + u_time * u_flowSpeed, 5) * TAU;
                 p -= vec2(cos(angle), sin(angle)) * u_advectStrength;
               }
 
@@ -427,7 +430,7 @@
                   vec2 cell = floor(uv) + neighbor;
 
                   // Animate cell centers
-                  vec2 point = cell + 0.5 + 0.4 * sin(u_time * u_speed + cell * 3.14159);
+                  vec2 point = cell + 0.5 + 0.4 * sin(u_time * u_speed + cell * PI);
 
                   float dist = length(uv - point);
                   if (dist < minDist) {
@@ -546,7 +549,7 @@
                   u_offset * sin(u_time * 0.5 + fi),
                   u_offset * cos(u_time * 0.5 + fi)
                 );
-                v += pattern(layerUV, angle + fi * 3.14159 / u_layers);
+                v += pattern(layerUV, angle + fi * PI / u_layers);
               }
               v /= u_layers;
 
@@ -603,16 +606,16 @@
               float rho = log((1.0 + r) / (1.0 - r)); // hyperbolic radius
 
               // Tile based on p,q values
-              float pAngle = 6.28318 / u_pValue;
-              float qAngle = 6.28318 / u_qValue;
+              float pAngle = TAU / u_pValue;
+              float qAngle = TAU / u_qValue;
 
-              float tileTheta = mod(theta + 3.14159, pAngle);
+              float tileTheta = mod(theta + PI, pAngle);
               float tileRho = mod(rho + u_time * 0.5, qAngle);
 
               float pattern = sin(tileTheta * u_pValue * 2.0) * sin(tileRho * u_qValue);
 
               // Distance to center for coloring
-              float hue = rho * 0.2 + theta / 6.28318 + u_time * u_colorSpeed;
+              float hue = rho * 0.2 + theta / TAU + u_time * u_colorSpeed;
               float sat = 0.8 + 0.2 * pattern;
               float val = 0.4 + 0.4 * (1.0 - r) + 0.2 * pattern;
 
@@ -758,7 +761,7 @@
                 float fi = float(i);
 
                 // Random angle for each branch (0 to 2*PI)
-                float angle = noise(vec2(fi * 17.3, 42.7)) * 6.28318;
+                float angle = noise(vec2(fi * 17.3, 42.7)) * TAU;
 
                 // Distribute centers across viewport
                 vec2 center = vec2(

@@ -16,44 +16,35 @@
     <div class="name-container">
       <span class="h1">Nihanth<br>Subramanya</span>
     </div>
-    <nav class="navLinks">
+    <nav class="nav-links">
       <a href="https://www.x.com/nhnt11" target="_blank" rel="noopener">X</a>
       <a href="https://nhnt11.medium.com/" target="_blank" rel="noopener">Blog</a>
       <a href="https://www.instagram.com/imprintsofspacetime" target="_blank" rel="noopener">Photos</a>
       <a href="https://www.linkedin.com/in/nhnt11" target="_blank" rel="noopener">Work</a>
     </nav>
     <script>
-      function updateVignettes() {
-        const nameContainer = document.querySelector('.name-container');
-        const navLinks = document.querySelector('.navLinks');
-        const vignetteTL = document.querySelector('.vignette-top-left');
-        const vignetteBR = document.querySelector('.vignette-bottom-right');
-        const padding = 250;
+      // ==================================================
+      // CONSTANTS
+      // ==================================================
 
-        const nameRect = nameContainer.getBoundingClientRect();
-        const navRect = navLinks.getBoundingClientRect();
+      const TIMING = {
+        transitionSlow: 1500,   // ms - crossfade between images
+        transitionFast: 500,    // ms - user-initiated image switches
+        cyclePause: 5000,       // ms - time between auto-advances
+        parallaxSmooth: 500,    // ms - smooth first parallax move
+      };
 
-        // Top-left vignette: double size so center sits at corner
-        const tlWidth = (nameRect.width + nameRect.left + padding) * 2;
-        const tlHeight = (nameRect.height + nameRect.top + padding) * 2;
-        vignetteTL.style.width = tlWidth + 'px';
-        vignetteTL.style.height = tlHeight + 'px';
-        vignetteTL.style.top = '0';
-        vignetteTL.style.left = '0';
+      const LAYOUT = {
+        vignettePadding: 250,   // px - breathing room around text
+        parallaxDeadzone: 50,   // px - edge area where parallax stops
+        tapEdgeZone: 0.15,      // fraction - edge tap to change image
+        tapThreshold: 10,       // px - movement before tap becomes pan
+        minOverflow: 1.15,      // fraction - minimum image overflow for parallax
+        maxOverflow: 1.35,      // fraction - target overflow on larger dimension
+        panSpeedX: 0.0008,      // fraction/ms - horizontal pan speed on mobile
+      };
 
-        // Bottom-right vignette: double size so center sits at corner
-        const brWidth = (navRect.width + (window.innerWidth - navRect.right) + padding) * 2;
-        const brHeight = (navRect.height + (window.innerHeight - navRect.bottom) + padding) * 2;
-        vignetteBR.style.width = brWidth + 'px';
-        vignetteBR.style.height = brHeight + 'px';
-        vignetteBR.style.bottom = '0';
-        vignetteBR.style.right = '0';
-      }
-
-      updateVignettes();
-      window.addEventListener('resize', updateVignettes);
-
-      const bgImages = [
+      const IMAGES = [
         'https://cdn.nhnt11.com/bg-tuscany.jpg',
         'https://cdn.nhnt11.com/DSC02365-Edit-Edit-2.jpg',
         'https://cdn.nhnt11.com/DSC02426-Edit-2.jpg',
@@ -66,190 +57,250 @@
         'https://cdn.nhnt11.com/DSC07914.jpg',
         'https://cdn.nhnt11.com/DSC08059.jpg',
       ];
-      const cycleInterval = 5000; // milliseconds between transitions
 
-      const bgLayer1 = document.querySelector('.bg-layer-1');
-      const bgLayer2 = document.querySelector('.bg-layer-2');
-      let currentIndex = 0;
-      let activeLayer = bgLayer1;
-      const imageData = []; // stores { width, height } for each image
+      // ==================================================
+      // DOM ELEMENTS
+      // ==================================================
 
-      // Preload a single image and get dimensions
-      function preloadImage(index) {
-        return new Promise((resolve) => {
-          if (imageData[index]) {
-            resolve(imageData[index]);
-            return;
-          }
-          const img = new Image();
-          img.onload = function() {
-            imageData[index] = { width: this.naturalWidth, height: this.naturalHeight };
-            resolve(imageData[index]);
-          };
-          img.onerror = () => resolve(null);
-          img.src = bgImages[index];
-        });
-      }
+      const DOM = {
+        body: document.body,
+        nameContainer: document.querySelector('.name-container'),
+        navLinks: document.querySelector('.nav-links'),
+        vignetteTL: document.querySelector('.vignette-top-left'),
+        vignetteBR: document.querySelector('.vignette-bottom-right'),
+        bgLayer1: document.querySelector('.bg-layer-1'),
+        bgLayer2: document.querySelector('.bg-layer-2'),
+      };
 
-      // Preload all images in background
-      function preloadAllImages() {
-        bgImages.forEach((_, index) => preloadImage(index));
-      }
+      // ==================================================
+      // VIGNETTE - Dynamic sizing around content
+      // ==================================================
 
-      function calculateBackgroundSize(imgWidth, imgHeight) {
-        const minOverflow = 1.15; // Minimum 15% overflow on both dimensions
-        const targetMaxOverflow = 1.35; // The larger overflow should be at least 35%
-        const viewWidth = window.innerWidth;
-        const viewHeight = window.innerHeight;
-        const imgAspect = imgWidth / imgHeight;
-        const viewAspect = viewWidth / viewHeight;
+      const Vignette = (function() {
+        function update() {
+          const padding = LAYOUT.vignettePadding;
+          const nameRect = DOM.nameContainer.getBoundingClientRect();
+          const navRect = DOM.navLinks.getBoundingClientRect();
 
-        let finalWidth, finalHeight;
+          // Top-left vignette: double size so center sits at corner
+          const tlWidth = (nameRect.width + nameRect.left + padding) * 2;
+          const tlHeight = (nameRect.height + nameRect.top + padding) * 2;
+          DOM.vignetteTL.style.width = tlWidth + 'px';
+          DOM.vignetteTL.style.height = tlHeight + 'px';
+          DOM.vignetteTL.style.top = '0';
+          DOM.vignetteTL.style.left = '0';
 
-        if (imgAspect >= viewAspect) {
-          // Width overflows more (or equal) - target 35% on width
-          finalWidth = viewWidth * targetMaxOverflow;
-          finalHeight = finalWidth / imgAspect;
-
-          // Ensure minimum overflow on height
-          if (finalHeight < viewHeight * minOverflow) {
-            finalHeight = viewHeight * minOverflow;
-            finalWidth = finalHeight * imgAspect;
-          }
-        } else {
-          // Height overflows more - target 35% on height
-          finalHeight = viewHeight * targetMaxOverflow;
-          finalWidth = finalHeight * imgAspect;
-
-          // Ensure minimum overflow on width
-          if (finalWidth < viewWidth * minOverflow) {
-            finalWidth = viewWidth * minOverflow;
-            finalHeight = finalWidth / imgAspect;
-          }
+          // Bottom-right vignette: double size so center sits at corner
+          const brWidth = (navRect.width + (window.innerWidth - navRect.right) + padding) * 2;
+          const brHeight = (navRect.height + (window.innerHeight - navRect.bottom) + padding) * 2;
+          DOM.vignetteBR.style.width = brWidth + 'px';
+          DOM.vignetteBR.style.height = brHeight + 'px';
+          DOM.vignetteBR.style.bottom = '0';
+          DOM.vignetteBR.style.right = '0';
         }
 
-        return `${finalWidth}px ${finalHeight}px`;
-      }
+        return { update };
+      })();
 
-      function setLayerImage(layer, index) {
-        const src = bgImages[index];
-        const data = imageData[index];
-        layer.style.backgroundImage = `url('${src}')`;
-        if (data) {
-          layer.style.backgroundSize = calculateBackgroundSize(data.width, data.height);
-        }
-      }
+      // ==================================================
+      // GALLERY - Background image cycling and preloading
+      // ==================================================
 
-      let isTransitioning = false;
-      let cycleIntervalId = null;
-      const normalTransitionDuration = 1500;
-      const fastTransitionDuration = 500;
+      const Gallery = (function() {
+        // --------------------------------------------------
+        // State
+        // --------------------------------------------------
+        let currentIndex = 0;
+        let activeLayer = DOM.bgLayer1;
+        let isTransitioning = false;
+        let cycleIntervalId = null;
+        const imageData = [];  // stores { width, height } for each image
+        const onCycleCallbacks = [];
 
-      function cycleBackground(direction = 1, fast = false) {
-        if (bgImages.length <= 1 || isTransitioning) return;
+        // --------------------------------------------------
+        // Private functions
+        // --------------------------------------------------
 
-        const nextIndex = (currentIndex + direction + bgImages.length) % bgImages.length;
-        const inactiveLayer = activeLayer === bgLayer1 ? bgLayer2 : bgLayer1;
-        const duration = fast ? fastTransitionDuration : normalTransitionDuration;
-
-        isTransitioning = true;
-
-        // Preload the next image before transitioning
-        preloadImage(nextIndex).then(() => {
-          // Prepare next image on inactive layer
-          setLayerImage(inactiveLayer, nextIndex);
-          inactiveLayer.style.backgroundPosition = activeLayer.style.backgroundPosition;
-
-          // Apply transition duration
-          if (fast) {
-            bgLayer1.style.transitionDuration = `${duration}ms`;
-            bgLayer2.style.transitionDuration = `${duration}ms`;
-          }
-
-          // Crossfade
-          activeLayer.classList.remove('active');
-          inactiveLayer.classList.add('active');
-
-          activeLayer = inactiveLayer;
-          currentIndex = nextIndex;
-          localStorage.setItem('lastBgIndex', currentIndex);
-
-          // Start preloading the next image in line
-          preloadImage((currentIndex + 1) % bgImages.length);
-
-          // Reset transition flag after CSS transition completes
-          setTimeout(() => {
-            isTransitioning = false;
-            if (fast) {
-              bgLayer1.style.transitionDuration = '';
-              bgLayer2.style.transitionDuration = '';
+        function preloadImage(index) {
+          return new Promise((resolve) => {
+            if (imageData[index]) {
+              resolve(imageData[index]);
+              return;
             }
-          }, duration);
-        });
-      }
-
-      function resetCycleTimer() {
-        if (cycleIntervalId) {
-          clearInterval(cycleIntervalId);
+            const img = new Image();
+            img.onload = function() {
+              imageData[index] = { width: this.naturalWidth, height: this.naturalHeight };
+              resolve(imageData[index]);
+            };
+            img.onerror = () => resolve(null);
+            img.src = IMAGES[index];
+          });
         }
-        if (bgImages.length > 1) {
-          cycleIntervalId = setInterval(() => cycleBackground(1), cycleInterval);
-        }
-      }
 
-      function updateAllBackgroundSizes() {
-        [bgLayer1, bgLayer2].forEach((layer, i) => {
-          const layerIndex = layer === activeLayer ? currentIndex : (currentIndex + 1) % bgImages.length;
-          const data = imageData[layerIndex];
+        function preloadAllImages() {
+          IMAGES.forEach((_, index) => preloadImage(index));
+        }
+
+        function calculateBackgroundSize(imgWidth, imgHeight) {
+          const viewWidth = window.innerWidth;
+          const viewHeight = window.innerHeight;
+          const imgAspect = imgWidth / imgHeight;
+          const viewAspect = viewWidth / viewHeight;
+
+          let finalWidth, finalHeight;
+
+          if (imgAspect >= viewAspect) {
+            // Width overflows more - target max overflow on width
+            finalWidth = viewWidth * LAYOUT.maxOverflow;
+            finalHeight = finalWidth / imgAspect;
+            // Ensure minimum overflow on height
+            if (finalHeight < viewHeight * LAYOUT.minOverflow) {
+              finalHeight = viewHeight * LAYOUT.minOverflow;
+              finalWidth = finalHeight * imgAspect;
+            }
+          } else {
+            // Height overflows more - target max overflow on height
+            finalHeight = viewHeight * LAYOUT.maxOverflow;
+            finalWidth = finalHeight * imgAspect;
+            // Ensure minimum overflow on width
+            if (finalWidth < viewWidth * LAYOUT.minOverflow) {
+              finalWidth = viewWidth * LAYOUT.minOverflow;
+              finalHeight = finalWidth / imgAspect;
+            }
+          }
+
+          return `${finalWidth}px ${finalHeight}px`;
+        }
+
+        function setLayerImage(layer, index) {
+          const src = IMAGES[index];
+          const data = imageData[index];
+          layer.style.backgroundImage = `url('${src}')`;
           if (data) {
             layer.style.backgroundSize = calculateBackgroundSize(data.width, data.height);
           }
-        });
-      }
+        }
 
-      // Initialize
-      const lastIndex = localStorage.getItem('lastBgIndex');
-      if (lastIndex !== null) {
-        currentIndex = (parseInt(lastIndex, 10) + 1) % bgImages.length;
-      } else {
-        currentIndex = Math.floor(Math.random() * bgImages.length);
-      }
-      localStorage.setItem('lastBgIndex', currentIndex);
-      preloadImage(currentIndex).then(() => {
-        setLayerImage(bgLayer1, currentIndex);
-        bgLayer1.style.backgroundPosition = '50% 50%';
+        function updateAllBackgroundSizes() {
+          [DOM.bgLayer1, DOM.bgLayer2].forEach((layer) => {
+            const layerIndex = layer === activeLayer ? currentIndex : (currentIndex + 1) % IMAGES.length;
+            const data = imageData[layerIndex];
+            if (data) {
+              layer.style.backgroundSize = calculateBackgroundSize(data.width, data.height);
+            }
+          });
+        }
 
-        // Reveal the page
-        document.body.classList.remove('page-loading');
+        // --------------------------------------------------
+        // Public API
+        // --------------------------------------------------
 
-        // Preload remaining images in background
-        preloadAllImages();
+        function cycle(direction = 1, fast = false) {
+          if (IMAGES.length <= 1 || isTransitioning) return;
 
-        resetCycleTimer();
-      });
+          const nextIndex = (currentIndex + direction + IMAGES.length) % IMAGES.length;
+          const inactiveLayer = activeLayer === DOM.bgLayer1 ? DOM.bgLayer2 : DOM.bgLayer1;
+          const duration = fast ? TIMING.transitionFast : TIMING.transitionSlow;
 
-      // Keyboard navigation for background images
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'ArrowRight') {
-          if (!isTransitioning) {
-            cycleBackground(1, true);
-            resetCycleTimer();
+          isTransitioning = true;
+
+          preloadImage(nextIndex).then(() => {
+            setLayerImage(inactiveLayer, nextIndex);
+            inactiveLayer.style.backgroundPosition = activeLayer.style.backgroundPosition;
+
+            if (fast) {
+              DOM.bgLayer1.style.transitionDuration = `${duration}ms`;
+              DOM.bgLayer2.style.transitionDuration = `${duration}ms`;
+            }
+
+            activeLayer.classList.remove('active');
+            inactiveLayer.classList.add('active');
+
+            activeLayer = inactiveLayer;
+            currentIndex = nextIndex;
+            localStorage.setItem('lastBgIndex', currentIndex);
+
+            // Preload next image in line
+            preloadImage((currentIndex + 1) % IMAGES.length);
+
+            // Notify listeners
+            onCycleCallbacks.forEach(cb => cb());
+
+            setTimeout(() => {
+              isTransitioning = false;
+              if (fast) {
+                DOM.bgLayer1.style.transitionDuration = '';
+                DOM.bgLayer2.style.transitionDuration = '';
+              }
+            }, duration);
+          });
+        }
+
+        function resetTimer() {
+          if (cycleIntervalId) {
+            clearInterval(cycleIntervalId);
           }
-        } else if (e.key === 'ArrowLeft') {
-          if (!isTransitioning) {
-            cycleBackground(-1, true);
-            resetCycleTimer();
+          if (IMAGES.length > 1) {
+            cycleIntervalId = setInterval(() => cycle(1), TIMING.cyclePause);
           }
         }
-      });
 
-      window.addEventListener('resize', updateAllBackgroundSizes);
+        function setPosition(x, y) {
+          const position = `${x}% ${y}%`;
+          DOM.bgLayer1.style.backgroundPosition = position;
+          DOM.bgLayer2.style.backgroundPosition = position;
+        }
 
-      // Parallax - only on devices with a mouse
-      if (window.matchMedia('(pointer: fine)').matches) {
-        let firstMove = true;
-        document.addEventListener('mousemove', (e) => {
-          const padding = 50;
+        function setTransition(value) {
+          DOM.bgLayer1.style.transition = value;
+          DOM.bgLayer2.style.transition = value;
+        }
+
+        function onCycle(callback) {
+          onCycleCallbacks.push(callback);
+        }
+
+        function init() {
+          const lastIndex = localStorage.getItem('lastBgIndex');
+          if (lastIndex !== null) {
+            currentIndex = (parseInt(lastIndex, 10) + 1) % IMAGES.length;
+          } else {
+            currentIndex = Math.floor(Math.random() * IMAGES.length);
+          }
+          localStorage.setItem('lastBgIndex', currentIndex);
+
+          return preloadImage(currentIndex).then(() => {
+            setLayerImage(DOM.bgLayer1, currentIndex);
+            DOM.bgLayer1.style.backgroundPosition = '50% 50%';
+            DOM.body.classList.remove('page-loading');
+            preloadAllImages();
+            resetTimer();
+          });
+        }
+
+        return {
+          cycle,
+          resetTimer,
+          setPosition,
+          setTransition,
+          onCycle,
+          init,
+          updateSizes: updateAllBackgroundSizes,
+          isTransitioning: () => isTransitioning,
+          getCurrentIndex: () => currentIndex,
+          getImageData: (index) => imageData[index],
+        };
+      })();
+
+      // ==================================================
+      // PARALLAX - Mouse-based background movement (desktop)
+      // ==================================================
+
+      const Parallax = (function() {
+        let isFirstMove = true;
+
+        function handleMouseMove(e) {
+          const padding = LAYOUT.parallaxDeadzone;
           const viewWidth = window.innerWidth;
           const viewHeight = window.innerHeight;
 
@@ -260,137 +311,140 @@
           const percentY = ((clampedY - padding) / (viewHeight - 2 * padding)) * 100;
 
           // Smooth transition on first mouse entry to prevent jerk
-          if (firstMove) {
-            firstMove = false;
-            bgLayer1.style.transition = 'opacity 1.5s ease-in-out, background-position 0.5s ease-out';
-            bgLayer2.style.transition = 'opacity 1.5s ease-in-out, background-position 0.5s ease-out';
-            setTimeout(() => {
-              bgLayer1.style.transition = '';
-              bgLayer2.style.transition = '';
-            }, 500);
+          if (isFirstMove) {
+            isFirstMove = false;
+            Gallery.setTransition(`opacity ${TIMING.transitionSlow}ms ease-in-out, background-position ${TIMING.parallaxSmooth}ms ease-out`);
+            setTimeout(() => Gallery.setTransition(''), TIMING.parallaxSmooth);
           }
 
-          const position = `${percentX}% ${percentY}%`;
-          bgLayer1.style.backgroundPosition = position;
-          bgLayer2.style.backgroundPosition = position;
-        });
-      } else {
-        // Mobile auto-pan
-        let panAnimationId = null;
-        let panStartTime = null;
-        let panParams = null;
-        let currentX = 50; // Track current position
+          Gallery.setPosition(percentX, percentY);
+        }
+
+        function init() {
+          document.addEventListener('mousemove', handleMouseMove);
+        }
+
+        return { init };
+      })();
+
+      // ==================================================
+      // PAN - Touch-based panning and auto-pan (mobile)
+      // ==================================================
+
+      const Pan = (function() {
+        // --------------------------------------------------
+        // State
+        // --------------------------------------------------
+        let animationId = null;
+        let startTime = null;
+        let params = null;
+        let currentX = 50;
         let currentY = 50;
         let isTouching = false;
 
-        function initPanParams(isFirst) {
-          const data = imageData[currentIndex];
-          if (!data) return null;
-
-          const direction = Math.random() < 0.5 ? 1 : -1; // Random left/right direction
-          const angleOffset = (Math.random() - 0.5) * 30; // Random angle: -15 to +15 degrees
-          const angleRad = angleOffset * Math.PI / 180;
-
-          // Always pan horizontally with slight vertical drift from angle
-          const speedX = 0.0008; // ~0.8% per second horizontally
-          const speedY = speedX * Math.tan(angleRad);
-
-          return {
-            direction,
-            speedX,
-            speedY,
-            startX: isFirst ? 50 : currentX,
-            startY: isFirst ? 50 : currentY
-          };
-        }
-
-        function updatePosition() {
-          const position = `${currentX}% ${currentY}%`;
-          bgLayer1.style.backgroundPosition = position;
-          bgLayer2.style.backgroundPosition = position;
-        }
-
-        function animatePan(timestamp) {
-          if (!panStartTime) panStartTime = timestamp;
-          if (!panParams) {
-            panParams = initPanParams(true);
-            if (!panParams) {
-              panAnimationId = requestAnimationFrame(animatePan);
-              return;
-            }
-          }
-
-          const elapsed = timestamp - panStartTime;
-
-          const deltaX = elapsed * panParams.speedX * panParams.direction;
-          const deltaY = elapsed * panParams.speedY * panParams.direction;
-
-          currentX = Math.max(0, Math.min(100, panParams.startX + deltaX));
-          currentY = Math.max(0, Math.min(100, panParams.startY + deltaY));
-
-          updatePosition();
-
-          panAnimationId = requestAnimationFrame(animatePan);
-        }
-
-        function startNewPan(isFirst) {
-          panStartTime = null;
-          panParams = initPanParams(isFirst);
-          if (panAnimationId) cancelAnimationFrame(panAnimationId);
-          panAnimationId = requestAnimationFrame(animatePan);
-        }
-
-        // Touch panning
+        // Touch state
         let touchStartX = 0;
         let touchStartY = 0;
         let panStartX = 0;
         let panStartY = 0;
         let hasPanned = false;
         let wasRevealedBeforePan = false;
-        const tapThreshold = 10; // pixels
 
-        document.addEventListener('touchstart', (e) => {
+        // --------------------------------------------------
+        // Auto-pan animation
+        // --------------------------------------------------
+
+        function initParams(isFirst) {
+          const data = Gallery.getImageData(Gallery.getCurrentIndex());
+          if (!data) return null;
+
+          const direction = Math.random() < 0.5 ? 1 : -1;
+          const angleOffset = (Math.random() - 0.5) * 30;  // -15 to +15 degrees
+          const angleRad = angleOffset * Math.PI / 180;
+
+          return {
+            direction,
+            speedX: LAYOUT.panSpeedX,
+            speedY: LAYOUT.panSpeedX * Math.tan(angleRad),
+            startX: isFirst ? 50 : currentX,
+            startY: isFirst ? 50 : currentY
+          };
+        }
+
+        function updatePosition() {
+          Gallery.setPosition(currentX, currentY);
+        }
+
+        function animate(timestamp) {
+          if (!startTime) startTime = timestamp;
+          if (!params) {
+            params = initParams(true);
+            if (!params) {
+              animationId = requestAnimationFrame(animate);
+              return;
+            }
+          }
+
+          const elapsed = timestamp - startTime;
+          const deltaX = elapsed * params.speedX * params.direction;
+          const deltaY = elapsed * params.speedY * params.direction;
+
+          currentX = Math.max(0, Math.min(100, params.startX + deltaX));
+          currentY = Math.max(0, Math.min(100, params.startY + deltaY));
+
+          updatePosition();
+          animationId = requestAnimationFrame(animate);
+        }
+
+        function startNewPan(isFirst) {
+          startTime = null;
+          params = initParams(isFirst);
+          if (animationId) cancelAnimationFrame(animationId);
+          animationId = requestAnimationFrame(animate);
+        }
+
+        // --------------------------------------------------
+        // Touch handlers
+        // --------------------------------------------------
+
+        function handleTouchStart(e) {
           if (e.touches.length !== 1) return;
-          // Don't intercept touches on links or buttons
           if (e.target.closest('a, button')) return;
+
           isTouching = true;
           hasPanned = false;
-          wasRevealedBeforePan = document.body.classList.contains('bg-reveal');
+          wasRevealedBeforePan = DOM.body.classList.contains('bg-reveal');
           touchStartX = e.touches[0].clientX;
           touchStartY = e.touches[0].clientY;
           panStartX = currentX;
           panStartY = currentY;
-          // Disable background-position transition for immediate response, but keep opacity for crossfade
-          bgLayer1.style.transition = 'opacity 1.5s ease-in-out';
-          bgLayer2.style.transition = 'opacity 1.5s ease-in-out';
-          // Cancel auto-pan animation during touch
-          if (panAnimationId) {
-            cancelAnimationFrame(panAnimationId);
-            panAnimationId = null;
+
+          // Disable background-position transition for immediate response
+          Gallery.setTransition(`opacity ${TIMING.transitionSlow}ms ease-in-out`);
+
+          if (animationId) {
+            cancelAnimationFrame(animationId);
+            animationId = null;
           }
-        }, { passive: true });
+        }
 
-        document.addEventListener('touchmove', (e) => {
+        function handleTouchMove(e) {
           if (!isTouching || e.touches.length !== 1) return;
-
-          // Prevent pull-to-refresh on mobile Safari
-          e.preventDefault();
+          e.preventDefault();  // Prevent pull-to-refresh
 
           const touchX = e.touches[0].clientX;
           const touchY = e.touches[0].clientY;
 
-          // Check if we've moved enough to consider it a pan (only check once)
           if (!hasPanned) {
             const pixelDeltaX = Math.abs(touchX - touchStartX);
             const pixelDeltaY = Math.abs(touchY - touchStartY);
-            if (pixelDeltaX > tapThreshold || pixelDeltaY > tapThreshold) {
+            if (pixelDeltaX > LAYOUT.tapThreshold || pixelDeltaY > LAYOUT.tapThreshold) {
               hasPanned = true;
-              // Reveal background while panning
-              document.body.classList.add('bg-reveal');
+              DOM.body.classList.add('bg-reveal');
             }
           }
 
-          // Convert pixel movement to percentage (invert for natural drag feel)
+          // Convert pixel movement to percentage (invert for natural drag)
           const deltaX = ((touchStartX - touchX) / window.innerWidth) * 100;
           const deltaY = ((touchStartY - touchY) / window.innerHeight) * 100;
 
@@ -398,76 +452,134 @@
           currentY = Math.max(0, Math.min(100, panStartY + deltaY));
 
           updatePosition();
-        }, { passive: false });
+        }
 
         function handleTouchEnd() {
           if (!isTouching) return;
           isTouching = false;
 
-          // Restore transitions
-          bgLayer1.style.transition = '';
-          bgLayer2.style.transition = '';
+          Gallery.setTransition('');
 
           if (hasPanned) {
-            // Restore previous state after panning
             if (wasRevealedBeforePan) {
-              document.body.classList.add('bg-reveal');
+              DOM.body.classList.add('bg-reveal');
             } else {
-              document.body.classList.remove('bg-reveal');
+              DOM.body.classList.remove('bg-reveal');
             }
           } else {
             // Tap: check if on left/right edge to cycle background
-            const edgeZone = window.innerWidth * 0.15; // 15% of screen width
+            const edgeZone = window.innerWidth * LAYOUT.tapEdgeZone;
             if (touchStartX < edgeZone) {
-              // Left edge tap: go to previous image
-              if (!isTransitioning) {
-                cycleBackground(-1, true);
-                resetCycleTimer();
+              if (!Gallery.isTransitioning()) {
+                Gallery.cycle(-1, true);
+                Gallery.resetTimer();
               }
             } else if (touchStartX > window.innerWidth - edgeZone) {
-              // Right edge tap: go to next image
-              if (!isTransitioning) {
-                cycleBackground(1, true);
-                resetCycleTimer();
+              if (!Gallery.isTransitioning()) {
+                Gallery.cycle(1, true);
+                Gallery.resetTimer();
               }
             } else {
-              // Center tap: toggle content visibility
-              document.body.classList.toggle('bg-reveal');
+              DOM.body.classList.toggle('bg-reveal');
             }
           }
 
-          // Resume auto-pan from current position
           startNewPan(false);
         }
 
-        document.addEventListener('touchend', handleTouchEnd);
-        document.addEventListener('touchcancel', handleTouchEnd);
+        // --------------------------------------------------
+        // Public API
+        // --------------------------------------------------
 
-        // Start panning after images load
-        const originalCycleBackground = cycleBackground;
-        cycleBackground = function(direction = 1, fast = false) {
-          originalCycleBackground(direction, fast);
-          if (!isTouching) startNewPan(false);
+        function init() {
+          document.addEventListener('touchstart', handleTouchStart, { passive: true });
+          document.addEventListener('touchmove', handleTouchMove, { passive: false });
+          document.addEventListener('touchend', handleTouchEnd);
+          document.addEventListener('touchcancel', handleTouchEnd);
+
+          // Start panning after image cycles
+          Gallery.onCycle(function() {
+            if (!isTouching) startNewPan(false);
+          });
+
+          // Wait for initial image data before starting
+          const checkAndStart = setInterval(() => {
+            if (Gallery.getImageData(Gallery.getCurrentIndex())) {
+              clearInterval(checkAndStart);
+              startNewPan(true);
+            }
+          }, 100);
+        }
+
+        return {
+          init,
+          isTouching: () => isTouching,
         };
+      })();
 
-        // Initial pan after preload
-        const checkAndStartPan = setInterval(() => {
-          if (imageData[currentIndex]) {
-            clearInterval(checkAndStartPan);
-            startNewPan(true);
+      // ==================================================
+      // KEYBOARD - Navigation shortcuts
+      // ==================================================
+
+      const Keyboard = (function() {
+        function handleKeydown(e) {
+          if (e.key === 'ArrowRight') {
+            if (!Gallery.isTransitioning()) {
+              Gallery.cycle(1, true);
+              Gallery.resetTimer();
+            }
+          } else if (e.key === 'ArrowLeft') {
+            if (!Gallery.isTransitioning()) {
+              Gallery.cycle(-1, true);
+              Gallery.resetTimer();
+            }
           }
-        }, 100);
-      }
+        }
 
-      // Desktop: click anywhere to toggle background reveal (secret feature)
-      if (window.matchMedia('(pointer: fine)').matches) {
-        document.addEventListener('click', (e) => {
-          // Don't toggle if clicking on interactive elements
+        function init() {
+          document.addEventListener('keydown', handleKeydown);
+        }
+
+        return { init };
+      })();
+
+      // ==================================================
+      // CLICK REVEAL - Desktop background reveal on click
+      // ==================================================
+
+      const ClickReveal = (function() {
+        function handleClick(e) {
           if (e.target.closest('a, button, input, textarea, select')) return;
-          document.body.classList.toggle('bg-reveal');
-        });
-      }
+          DOM.body.classList.toggle('bg-reveal');
+        }
+
+        function init() {
+          document.addEventListener('click', handleClick);
+        }
+
+        return { init };
+      })();
+
+      // ==================================================
+      // INITIALIZATION
+      // ==================================================
+
+      Vignette.update();
+      window.addEventListener('resize', Vignette.update);
+      window.addEventListener('resize', Gallery.updateSizes);
+
+      Gallery.init().then(() => {
+        Keyboard.init();
+
+        // Device-specific interactions
+        const hasPointer = window.matchMedia('(pointer: fine)').matches;
+        if (hasPointer) {
+          Parallax.init();
+          ClickReveal.init();
+        } else {
+          Pan.init();
+        }
+      });
     </script>
   </body>
 </html>
-

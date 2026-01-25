@@ -22,6 +22,8 @@ This document defines the essence of nhnt11.com. Every decision—code, design, 
 
 **Immersive** — The browser window disappears. You're inside the experience, not looking at a website.
 
+**Responsive** — Mobile, tablet, and desktop are all first-class citizens. Not "mobile-first" or "desktop-first"—device-appropriate. Each form factor gets the experience it deserves: touch devices get touch interactions, pointer devices get pointer interactions, small screens get appropriately sized typography and spacing. Feature detection over viewport assumptions.
+
 ---
 
 ## Code Principles
