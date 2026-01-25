@@ -52,6 +52,7 @@ html {
 }
 
 body {
+  margin: 0;
   font-size: 1.2rem;
   min-width: 320px;
   color: var(--white);
@@ -86,6 +87,8 @@ b {
 
 body.index-body {
   background: var(--black);
+  height: 100%;
+  overflow: hidden;
 }
 
 .bg-layer {
