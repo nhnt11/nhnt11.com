@@ -216,6 +216,10 @@ const Visuals = (function() {
     resize();
     window.addEventListener('resize', resize);
     render();
+    // Remove loading state after first frame
+    requestAnimationFrame(() => {
+      document.body.classList.remove('page-loading');
+    });
   }
 
   return { init };

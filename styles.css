@@ -490,6 +490,20 @@ body.index-body {
   background: var(--black);
 }
 
+.dream-body.page-loading .dream-bg,
+.dream-body.page-loading .dream-overlay {
+  opacity: 0 !important;
+}
+
+.dream-body.page-loading .loading-spinner {
+  opacity: 1;
+}
+
+.dream-body .dream-bg,
+.dream-body .dream-overlay {
+  transition: opacity var(--transition-slow) var(--ease-in-out);
+}
+
 .dream-bg {
   position: fixed;
   top: 50%;
