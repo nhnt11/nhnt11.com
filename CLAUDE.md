@@ -6,12 +6,25 @@ Read `soul.md` first. It defines everything about this site's philosophy, code p
 
 ```
 /
-├── index.html          # Main landing page
-├── styles.css          # Shared styles
-├── soul.md             # Design philosophy (read this)
-├── CLAUDE.md           # This file
-└── dream/
-    └── index.html      # Psychedelic experience page
+├── index.html              # Main landing page
+├── styles.css              # Shared styles with design tokens
+├── js/
+│   ├── constants.js        # Timing, layout, image URLs
+│   ├── gallery.js          # Background image cycling
+│   ├── parallax.js         # Mouse-based movement (desktop)
+│   ├── pan.js              # Touch-based panning (mobile)
+│   ├── vignette.js         # Dynamic shadows around text
+│   └── main.js             # Entry point, initialization
+├── dream/
+│   ├── index.html          # Psychedelic experience page
+│   └── js/
+│       ├── glitch.js       # Text glitch effect
+│       ├── shaders.js      # Common GLSL code
+│       ├── effects.js      # Visual effects library
+│       ├── visuals.js      # WebGL renderer
+│       └── main.js         # Entry point
+├── soul.md                 # Design philosophy
+└── CLAUDE.md               # This file
 ```
 
 New pages go in their own directory with an `index.html` for clean URLs.

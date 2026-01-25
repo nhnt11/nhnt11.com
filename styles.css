@@ -62,8 +62,6 @@ body {
 body:not(.dream-body) > * {
   font-family: var(--font-mono);
   color: var(--white-95);
-  position: relative;
-  z-index: 2;
 }
 
 a {

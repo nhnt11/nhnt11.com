@@ -24,13 +24,15 @@ This document defines the essence of nhnt11.com. Every decision—code, design, 
 
 **Responsive** — Mobile, tablet, and desktop are all first-class citizens. Not "mobile-first" or "desktop-first"—device-appropriate. Each form factor gets the experience it deserves: touch devices get touch interactions, pointer devices get pointer interactions, small screens get appropriately sized typography and spacing. Feature detection over viewport assumptions.
 
+**Learnable** — The file structure is documentation. Someone should understand what the site does just by looking at the directory tree. `gallery.js` handles the gallery. `parallax.js` handles parallax. `glitch.js` handles glitch. No mystery, no indirection.
+
 ---
 
 ## Code Principles
 
 ### Architecture
 - **Zero dependencies** in production. No npm, no bundlers, no transpilers.
-- **Single-file pages** where possible. HTML, CSS, and JS together when cohesive.
+- **Descriptive file structure**. Each script does one thing, named for what it does. The directory tree tells the story.
 - **Shared styles** in one stylesheet. No CSS-in-JS, no utility classes.
 - **No build step**. What you write is what ships.
 - **Works offline**. Static assets, client-side only.
