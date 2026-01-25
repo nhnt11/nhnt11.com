@@ -1,6 +1,6 @@
 @charset "utf-8";
 @import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Rubik+Glitch&family=Shrikhand&family=Fascinate+Inline&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Shrikhand&display=swap');
 
 /* ==================================================
    DESIGN TOKENS
@@ -465,14 +465,14 @@ body.index-body {
 
 .dream-text-container {
   position: relative;
-  font-family: 'Rubik Glitch', system-ui;
+  font-family: 'Shrikhand', system-ui;
 }
 
 .dream-text,
 .dream-slice {
   color: var(--black);
   font-family: inherit;
-  font-size: clamp(8rem, 40vw, 24rem);
+  font-size: clamp(2rem, 23vw, 20rem);
   font-weight: var(--font-weight-normal);
   letter-spacing: 0.1em;
   text-transform: lowercase;

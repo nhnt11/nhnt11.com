@@ -33,25 +33,18 @@
       const container = document.querySelector('.dream-text-container');
       const slices = document.querySelectorAll('.dream-slice');
 
-      const fonts = [
-        "'Rubik Glitch', system-ui",
-        "'Shrikhand', system-ui",
-        "'Fascinate Inline', system-ui"
-      ];
-
-      container.style.fontFamily = fonts[Math.floor(Math.random() * fonts.length)];
-
       let isGlitching = false;
 
-      function triggerGlitch(allowFontChange = true, scheduleNext = true) {
+      function triggerGlitch(scheduleNext = true) {
         if (isGlitching) return;
         isGlitching = true;
 
-        if (allowFontChange && Math.random() < 0.5) {
-          container.style.fontFamily = fonts[Math.floor(Math.random() * fonts.length)];
-        }
-
+        // Clear any previous frozen state and set up new glitch
         slices.forEach(slice => {
+          slice.style.opacity = '';
+          slice.style.transform = '';
+          slice.classList.remove('glitching');
+
           if (Math.random() > 0.3) {
             slice.style.setProperty('--glitch-x', `${(Math.random() - 0.5) * 60}px`);
             slice.style.setProperty('--glitch-skew', `${(Math.random() - 0.5) * 10}deg`);
@@ -61,19 +54,35 @@
 
         container.classList.add('glitching');
 
+        // User-triggered glitches freeze, scheduled glitches don't
+        const shouldFreeze = !scheduleNext;
+
         setTimeout(() => {
           container.classList.remove('glitching');
-          slices.forEach(slice => slice.classList.remove('glitching'));
+
+          slices.forEach(slice => {
+            if (shouldFreeze && slice.classList.contains('glitching')) {
+              // Freeze: keep visible and transformed, but stop animation
+              const x = slice.style.getPropertyValue('--glitch-x');
+              const skew = slice.style.getPropertyValue('--glitch-skew');
+              slice.classList.remove('glitching');
+              slice.style.opacity = '1';
+              slice.style.transform = `translateX(${x}) skewX(${skew})`;
+            } else {
+              slice.classList.remove('glitching');
+            }
+          });
+
           isGlitching = false;
           if (scheduleNext) scheduleNextGlitch();
         }, 100 + Math.random() * 200);
       }
 
       function scheduleNextGlitch() {
-        setTimeout(() => triggerGlitch(true, true), 800 + Math.random() * 1700);
+        setTimeout(() => triggerGlitch(true), 800 + Math.random() * 1700);
       }
 
-      container.addEventListener('mousemove', () => triggerGlitch(false, false));
+      container.addEventListener('mousemove', () => triggerGlitch(false));
       setTimeout(scheduleNextGlitch, 5500);
 
       // ===================
