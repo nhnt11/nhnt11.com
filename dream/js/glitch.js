@@ -144,10 +144,11 @@ const Glitch = (function() {
     // Start parallax animation
     updateParallax();
 
-    // Glitch when zoom animation ends
+    // Glitch and crossfade when zoom animation ends
     container.addEventListener('animationend', (e) => {
       if (e.animationName === 'dreamZoomIn') {
         trigger(false);
+        Visuals.startCrossfade();
       }
     });
   }

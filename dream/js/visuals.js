@@ -159,7 +159,7 @@ const Visuals = (function() {
   let crossfadeActive = false;
   let crossfadeStartTime = 0;
   const CROSSFADE_DURATION = 4000; // 4 seconds
-  const CROSSFADE_PROBABILITY = 0.3; // 30% chance per glitch
+  const CROSSFADE_PROBABILITY = 0.5; // 50% chance per glitch
 
   const startTime = performance.now();
   let glitchIntensity = 0;
@@ -738,7 +738,7 @@ const Visuals = (function() {
   }
 
   return {
-    init, randomizePalette, triggerGlitch, enterChaosMode, exitChaosMode,
+    init, randomizePalette, triggerGlitch, startCrossfade, enterChaosMode, exitChaosMode,
     getMouse, getSecondaryEffect, getCurrentEffect,
     setEffect, getEffects, getParams, setParam,
     toggleFeedback, setFeedback, getFeedback
