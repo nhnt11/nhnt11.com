@@ -35,6 +35,9 @@ Secrets.init();
 │  dream.separation()     - get chromatic separation params  │
 │  dream.separation({...})- set separation params            │
 │                                                             │
+│  dream.current()        - current effect name              │
+│  dream.portal()         - secondary effect (portal)        │
+│                                                             │
 │  press \` for debug overlay    |    konami code for chaos   │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘`;
@@ -63,6 +66,8 @@ Secrets.init();
     chaos: Visuals.enterChaosMode,
     calm: Visuals.exitChaosMode,
     feedback: feedbackFn,
-    separation: separationFn
+    separation: separationFn,
+    current: Visuals.getCurrentEffect,
+    portal: () => Visuals.getSecondaryEffect().name
   };
 })();
