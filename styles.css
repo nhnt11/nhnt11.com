@@ -552,8 +552,8 @@ body.index-body {
   position: relative;
   font-family: 'Shrikhand', system-ui;
   isolation: isolate;
-  transform: scale(32);
-  transform-origin: 47% 48%;
+  transform: scale(50);
+  transform-origin: 47% 42%;
   animation: dreamZoomIn 4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   animation-delay: 1.5s;
 }
@@ -674,6 +674,6 @@ body.index-body {
 }
 
 @keyframes dreamZoomIn {
-  from { transform: scale(32); }
+  from { transform: scale(50); }
   to { transform: scale(1); }
 }
