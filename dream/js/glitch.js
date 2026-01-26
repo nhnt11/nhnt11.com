@@ -17,6 +17,9 @@ const Glitch = (function() {
   let prevMouseX = 0, prevMouseY = 0;
   let velocityX = 0, velocityY = 0;
   let separation = 0; // current separation amount
+  let maxSpread = 30;
+  let spreadMultiplier = 50;
+  let convergenceRate = 0.1;
 
   function onMouseIdle() {
     manualStrokeChangedPalette = false;
@@ -115,7 +118,7 @@ const Glitch = (function() {
 
     // Separation increases with movement, converges when stopped
     const targetSeparation = Math.min(speed * 800, 1);
-    separation += (targetSeparation - separation) * 0.1;
+    separation += (targetSeparation - separation) * convergenceRate;
 
     // Base parallax - all layers move together
     const baseX = mouse.x * 25;
@@ -123,13 +126,12 @@ const Glitch = (function() {
 
     // Layer offsets: spread along velocity direction
     const layerOffsets = [-1, 0, 1];
-    const maxSpread = 30;
 
     parallaxLayers.forEach((layer, i) => {
       const spread = layerOffsets[i] * separation * maxSpread;
       // Spread in direction of movement
-      const x = baseX + velocityX * spread * 50;
-      const y = baseY + velocityY * spread * 50;
+      const x = baseX + velocityX * spread * spreadMultiplier;
+      const y = baseY + velocityY * spread * spreadMultiplier;
       layer.style.transform = `translate(${x}px, ${y}px)`;
     });
 
@@ -143,5 +145,20 @@ const Glitch = (function() {
     updateParallax();
   }
 
-  return { init, trigger };
+  function getSeparation() {
+    return {
+      maxSpread,
+      spreadMultiplier,
+      convergenceRate,
+      current: separation
+    };
+  }
+
+  function setSeparation(opts) {
+    if (opts.maxSpread !== undefined) maxSpread = opts.maxSpread;
+    if (opts.spreadMultiplier !== undefined) spreadMultiplier = opts.spreadMultiplier;
+    if (opts.convergenceRate !== undefined) convergenceRate = opts.convergenceRate;
+  }
+
+  return { init, trigger, getSeparation, setSeparation };
 })();

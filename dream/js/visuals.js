@@ -256,19 +256,38 @@ const Visuals = (function() {
     }
 
     if (debugMode) {
-      const crossfadeStatus = crossfadeActive ? `crossfading (${(crossfadeProgress * 100).toFixed(0)}%)` : 'stable';
-      debugContent.textContent = [
-        `effect: ${primaryEffect} [1-0, n/p to switch]`,
-        `portal: ${secondaryEffect}`,
-        `transition: ${crossfadeStatus}`,
-        `feedback: ${feedbackEnabled ? 'ON [F]' : 'off [F]'}`,
-        `fps: ${fps}`,
-        `time: ${t.toFixed(2)}s`,
-        `resolution: ${canvas.width}x${canvas.height}`,
+      const crossfadeStatus = crossfadeActive ? `fade ${(crossfadeProgress * 100).toFixed(0)}%` : 'stable';
+      const fb = feedbackEnabled ? 'ON ' : 'off';
+
+      const lines = [
+        `  EFFECT   ${primaryEffect}`,
+        `  portal   ${secondaryEffect} (${crossfadeStatus})`,
         ``,
-        `params: [↑↓ select, ←→ adjust, R reset]`,
-        formatParams(primaryParams)
-      ].join('\n');
+        `  FEEDBACK [F] ${fb}`,
+        `    amount ${feedbackAmount.toFixed(2)}  [[]]    zoom ${feedbackZoom.toFixed(3)}   [,.]`,
+        `    rotate ${feedbackRotation.toFixed(3)} [;']    decay ${feedbackDecay.toFixed(2)}  [-=]`,
+        ``,
+        `  fps ${fps}  time ${t.toFixed(1)}s  ${canvas.width}x${canvas.height}`,
+        ``,
+        `  PARAMS   [↑↓] select  [←→] adjust  [R] reset`,
+        ``
+      ];
+
+      const paramLines = formatParams(primaryParams).split('\n');
+      lines.push(...paramLines.map(l => `  ${l}`));
+      lines.push(``);
+      lines.push(`  [1-0] effect  [N/P] cycle  [\`] close`);
+
+      // Calculate max width
+      const maxLen = Math.max(...lines.map(l => l.length));
+      const width = maxLen + 2;
+
+      // Build bordered output
+      const top = `┌${'─'.repeat(width)}┐`;
+      const bot = `└${'─'.repeat(width)}┘`;
+      const bordered = lines.map(l => `│ ${l.padEnd(maxLen)} │`);
+
+      debugContent.textContent = [top, ...bordered, bot].join('\n');
     }
   }
 
@@ -311,7 +330,7 @@ const Visuals = (function() {
 
     switch (e.key) {
       case 'ArrowUp':
-        if (!debugMode) break; // Allow arrow keys for Konami when not in debug
+        if (!debugMode) break;
         selectedParamIndex = Math.max(0, selectedParamIndex - 1);
         break;
       case 'ArrowDown':
@@ -329,6 +348,31 @@ const Visuals = (function() {
       case 'r':
       case 'R':
         primaryParams = EFFECTS[primaryEffect].params();
+        break;
+      // Feedback controls
+      case '[':
+        feedbackAmount = Math.max(0, feedbackAmount - 0.05);
+        break;
+      case ']':
+        feedbackAmount = Math.min(1, feedbackAmount + 0.05);
+        break;
+      case ',':
+        feedbackZoom = Math.max(0.9, feedbackZoom - 0.002);
+        break;
+      case '.':
+        feedbackZoom = Math.min(1.1, feedbackZoom + 0.002);
+        break;
+      case ';':
+        feedbackRotation -= 0.002;
+        break;
+      case "'":
+        feedbackRotation += 0.002;
+        break;
+      case '-':
+        feedbackDecay = Math.max(0.8, feedbackDecay - 0.01);
+        break;
+      case '=':
+        feedbackDecay = Math.min(1, feedbackDecay + 0.01);
         break;
     }
   });
@@ -646,5 +690,57 @@ const Visuals = (function() {
     return primaryEffect;
   }
 
-  return { init, randomizePalette, triggerGlitch, enterChaosMode, exitChaosMode, getMouse, getSecondaryEffect, getCurrentEffect };
+  function setEffect(name) {
+    if (EFFECTS[name] && programs[name]) {
+      switchEffect(name);
+      return true;
+    }
+    return false;
+  }
+
+  function getEffects() {
+    return [...effectNames];
+  }
+
+  function getParams() {
+    return { ...primaryParams };
+  }
+
+  function setParam(key, value) {
+    if (key in primaryParams) {
+      primaryParams[key] = value;
+      return true;
+    }
+    return false;
+  }
+
+  function toggleFeedback() {
+    feedbackEnabled = !feedbackEnabled;
+    return feedbackEnabled;
+  }
+
+  function setFeedback(opts) {
+    if (opts.amount !== undefined) feedbackAmount = opts.amount;
+    if (opts.zoom !== undefined) feedbackZoom = opts.zoom;
+    if (opts.rotation !== undefined) feedbackRotation = opts.rotation;
+    if (opts.decay !== undefined) feedbackDecay = opts.decay;
+    if (opts.enabled !== undefined) feedbackEnabled = opts.enabled;
+  }
+
+  function getFeedback() {
+    return {
+      enabled: feedbackEnabled,
+      amount: feedbackAmount,
+      zoom: feedbackZoom,
+      rotation: feedbackRotation,
+      decay: feedbackDecay
+    };
+  }
+
+  return {
+    init, randomizePalette, triggerGlitch, enterChaosMode, exitChaosMode,
+    getMouse, getSecondaryEffect, getCurrentEffect,
+    setEffect, getEffects, getParams, setParam,
+    toggleFeedback, setFeedback, getFeedback
+  };
 })();
