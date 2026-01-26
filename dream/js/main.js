@@ -2,3 +2,4 @@
 
 Glitch.init();
 Visuals.init();
+Secrets.init();

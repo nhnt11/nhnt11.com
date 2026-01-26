@@ -43,13 +43,24 @@ const GLSL_COMMON = `
   uniform vec2 u_resolution;
   uniform float u_palette;
   uniform float u_glitch;
+  uniform vec2 u_mouse;
 
   #define PI  3.14159265359
   #define TAU 6.28318530718
   #define PALETTE_COUNT ${PALETTE_COUNT}.0
 
+  // Parallax offset based on mouse position
+  // Background moves opposite to mouse direction for depth illusion
+  // Y is negated because screen Y is inverted relative to UV Y
+  vec2 parallaxOffset(vec2 uv) {
+    return uv + vec2(u_mouse.x, -u_mouse.y) * 0.02;
+  }
+
   // Apply glitch distortion to UV coordinates
   vec2 glitchUV(vec2 uv) {
+    // Apply parallax first
+    uv = parallaxOffset(uv);
+
     float g = smoothstep(0.0, 0.05, u_glitch);
     if (g <= 0.0) return uv;
 

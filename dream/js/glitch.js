@@ -10,6 +10,7 @@ const Glitch = (function() {
   let manualPaletteChangeBlocksNext = false;
   let manualStrokeChangedPalette = false;
   let mouseIdleTimer = null;
+  let parallaxFrame = null;
 
   function onMouseIdle() {
     manualStrokeChangedPalette = false;
@@ -92,9 +93,20 @@ const Glitch = (function() {
     autoGlitchTimer = setTimeout(autoGlitch, 800 + Math.random() * 1700);
   }
 
+  function updateParallax() {
+    const mouse = Visuals.getMouse();
+    // Text moves WITH mouse at 2x background rate (creates depth where text feels closer)
+    const offsetX = mouse.x * 20; // pixels
+    const offsetY = mouse.y * 15;
+    container.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+    parallaxFrame = requestAnimationFrame(updateParallax);
+  }
+
   function init() {
     container.addEventListener('mousemove', () => trigger(false));
     setTimeout(scheduleAutoGlitch, 5500);
+    // Start parallax animation
+    updateParallax();
   }
 
   return { init, trigger };
