@@ -556,6 +556,7 @@ body.index-body {
   transform-origin: 47% 48%;
   animation: dreamZoomIn 4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   animation-delay: 1.5s;
+  animation-play-state: paused; /* DEBUG: remove to enable animation */
 }
 
 .dream-text,
