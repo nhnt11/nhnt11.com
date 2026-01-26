@@ -143,6 +143,13 @@ const Glitch = (function() {
     setTimeout(scheduleAutoGlitch, 5500);
     // Start parallax animation
     updateParallax();
+
+    // Glitch when zoom animation ends
+    container.addEventListener('animationend', (e) => {
+      if (e.animationName === 'dreamZoomIn') {
+        trigger(false);
+      }
+    });
   }
 
   function getSeparation() {
