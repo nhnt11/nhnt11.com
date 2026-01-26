@@ -550,6 +550,7 @@ body.index-body {
 .dream-text-container {
   position: relative;
   font-family: 'Shrikhand', system-ui;
+  isolation: isolate;
 }
 
 .dream-text,
@@ -560,6 +561,34 @@ body.index-body {
   font-weight: var(--font-weight-normal);
   letter-spacing: 0.1em;
   text-transform: lowercase;
+}
+
+.dream-parallax {
+  font-family: inherit;
+  font-size: clamp(2rem, 23vw, 20rem);
+  font-weight: var(--font-weight-normal);
+  letter-spacing: 0.1em;
+  text-transform: lowercase;
+}
+
+.dream-parallax {
+  position: absolute;
+  top: 0;
+  left: 0;
+  mix-blend-mode: darken;
+}
+
+.dream-parallax[data-layer="0"] {
+  color: #0ff; /* cyan */
+}
+
+.dream-parallax[data-layer="1"] {
+  position: relative;
+  color: var(--black);
+}
+
+.dream-parallax[data-layer="2"] {
+  color: #f00; /* red */
 }
 
 .dream-slice {
@@ -610,7 +639,7 @@ body.index-body {
 }
 
 /* Main text jitter when container glitches */
-.dream-text-container.glitching .dream-text {
+.dream-text-container.glitching .dream-parallax {
   animation: text-jitter 50ms steps(2, end) infinite;
 }
 

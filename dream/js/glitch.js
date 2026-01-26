@@ -3,6 +3,7 @@
 const Glitch = (function() {
   const container = document.querySelector('.dream-text-container');
   const slices = document.querySelectorAll('.dream-slice');
+  const parallaxLayers = document.querySelectorAll('.dream-parallax');
 
   let isGlitching = false;
   let autoGlitchTimer = null;
@@ -11,6 +12,11 @@ const Glitch = (function() {
   let manualStrokeChangedPalette = false;
   let mouseIdleTimer = null;
   let parallaxFrame = null;
+
+  // For velocity-based layer separation
+  let prevMouseX = 0, prevMouseY = 0;
+  let velocityX = 0, velocityY = 0;
+  let separation = 0; // current separation amount
 
   function onMouseIdle() {
     manualStrokeChangedPalette = false;
@@ -95,10 +101,38 @@ const Glitch = (function() {
 
   function updateParallax() {
     const mouse = Visuals.getMouse();
-    // Text moves WITH mouse at 2x background rate (creates depth where text feels closer)
-    const offsetX = mouse.x * 20; // pixels
-    const offsetY = mouse.y * 15;
-    container.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+
+    // Calculate velocity
+    const dx = mouse.x - prevMouseX;
+    const dy = mouse.y - prevMouseY;
+    prevMouseX = mouse.x;
+    prevMouseY = mouse.y;
+
+    // Smooth velocity
+    velocityX = velocityX * 0.8 + dx * 0.2;
+    velocityY = velocityY * 0.8 + dy * 0.2;
+    const speed = Math.sqrt(velocityX * velocityX + velocityY * velocityY);
+
+    // Separation increases with movement, converges when stopped
+    const targetSeparation = Math.min(speed * 800, 1);
+    separation += (targetSeparation - separation) * 0.1;
+
+    // Base parallax - all layers move together
+    const baseX = mouse.x * 25;
+    const baseY = mouse.y * 20;
+
+    // Layer offsets: spread along velocity direction
+    const layerOffsets = [-1, 0, 1];
+    const maxSpread = 30;
+
+    parallaxLayers.forEach((layer, i) => {
+      const spread = layerOffsets[i] * separation * maxSpread;
+      // Spread in direction of movement
+      const x = baseX + velocityX * spread * 50;
+      const y = baseY + velocityY * spread * 50;
+      layer.style.transform = `translate(${x}px, ${y}px)`;
+    });
+
     parallaxFrame = requestAnimationFrame(updateParallax);
   }
 
