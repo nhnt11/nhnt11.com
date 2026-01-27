@@ -1,7 +1,7 @@
 // Text glitch effect with random slice displacement
 
 const Glitch = (function() {
-  const container = document.querySelector('.dream-text-container');
+  const containers = document.querySelectorAll('.dream-text-container');
   const slices = document.querySelectorAll('.dream-slice');
   const parallaxLayers = document.querySelectorAll('.dream-parallax');
 
@@ -61,10 +61,10 @@ const Glitch = (function() {
       }
     });
 
-    container.classList.add('glitching');
+    containers.forEach(c => c.classList.add('glitching'));
 
     setTimeout(() => {
-      container.classList.remove('glitching');
+      containers.forEach(c => c.classList.remove('glitching'));
 
       slices.forEach(slice => {
         if (shouldFreeze && slice.classList.contains('glitching')) {
@@ -88,6 +88,60 @@ const Glitch = (function() {
     const isManual = !scheduleNext;
     if (isManual) resetMouseIdleTimer();
     doGlitch(isManual, isManual);
+  }
+
+  // Heavy glitch for transitions - more intense, with callback mid-glitch
+  function triggerHeavy(onMidGlitch) {
+    isGlitching = true;
+
+    // Always trigger visual glitch
+    Visuals.randomizePalette();
+    Visuals.triggerGlitch();
+
+    const heavyGlitchDuration = 800;
+    const glitchInterval = 50;
+    let elapsed = 0;
+    let midGlitchFired = false;
+
+    function doHeavyGlitch() {
+      // More intense displacement
+      slices.forEach(slice => {
+        slice.style.opacity = '';
+        slice.style.transform = '';
+        slice.classList.remove('glitching');
+
+        // All slices glitch during heavy mode - 2x stronger
+        const intensity = 3;
+        slice.style.setProperty('--glitch-x', `${(Math.random() - 0.5) * 120 * intensity}px`);
+        slice.style.setProperty('--glitch-skew', `${(Math.random() - 0.5) * 20 * intensity}deg`);
+        slice.classList.add('glitching');
+      });
+
+      containers.forEach(c => c.classList.add('glitching'));
+
+      // Fire mid-glitch callback around halfway through
+      if (!midGlitchFired && elapsed >= heavyGlitchDuration * 0.4) {
+        midGlitchFired = true;
+        if (onMidGlitch) onMidGlitch();
+      }
+
+      elapsed += glitchInterval;
+
+      if (elapsed < heavyGlitchDuration) {
+        setTimeout(doHeavyGlitch, glitchInterval);
+      } else {
+        // End heavy glitch
+        containers.forEach(c => c.classList.remove('glitching'));
+        slices.forEach(slice => {
+          slice.classList.remove('glitching');
+          slice.style.opacity = '';
+          slice.style.transform = '';
+        });
+        isGlitching = false;
+      }
+    }
+
+    doHeavyGlitch();
   }
 
   function autoGlitch() {
@@ -127,8 +181,10 @@ const Glitch = (function() {
     // Layer offsets: spread along velocity direction
     const layerOffsets = [-1, 0, 1];
 
-    parallaxLayers.forEach((layer, i) => {
-      const spread = layerOffsets[i] * separation * maxSpread;
+    parallaxLayers.forEach((layer) => {
+      // Get layer index from data attribute (0, 1, or 2)
+      const layerIndex = parseInt(layer.dataset.layer, 10);
+      const spread = layerOffsets[layerIndex] * separation * maxSpread;
       // Spread in direction of movement
       const x = baseX + velocityX * spread * spreadMultiplier;
       const y = baseY + velocityY * spread * spreadMultiplier;
@@ -139,18 +195,25 @@ const Glitch = (function() {
   }
 
   function init() {
-    container.addEventListener('mousemove', () => trigger(false));
+    // Add mousemove trigger to all containers
+    containers.forEach(c => {
+      c.addEventListener('mousemove', () => trigger(false));
+    });
+
     setTimeout(scheduleAutoGlitch, 5500);
     // Start parallax animation
     updateParallax();
 
-    // Glitch and crossfade when zoom animation ends
-    container.addEventListener('animationend', (e) => {
-      if (e.animationName === 'dreamZoomIn') {
-        trigger(false);
-        Visuals.startCrossfade();
-      }
-    });
+    // Glitch and crossfade when zoom animation ends (intro container)
+    const introContainer = document.querySelector('[data-section="intro"] .dream-text-container');
+    if (introContainer) {
+      introContainer.addEventListener('animationend', (e) => {
+        if (e.animationName === 'dreamZoomIn') {
+          trigger(false);
+          Visuals.startCrossfade();
+        }
+      });
+    }
   }
 
   function getSeparation() {
@@ -168,5 +231,5 @@ const Glitch = (function() {
     if (opts.convergenceRate !== undefined) convergenceRate = opts.convergenceRate;
   }
 
-  return { init, trigger, getSeparation, setSeparation };
+  return { init, trigger, triggerHeavy, getSeparation, setSeparation };
 })();

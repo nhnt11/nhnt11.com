@@ -528,7 +528,7 @@ body.index-body {
   line-height: 1.4;
   color: #0f0;
   background: rgba(0, 10, 0, 0.85);
-  padding: 4px 32px;
+  padding: 4px 8px;
   white-space: pre;
   pointer-events: none;
   text-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
@@ -562,7 +562,7 @@ body.index-body {
 .dream-slice {
   color: var(--black);
   font-family: inherit;
-  font-size: clamp(2rem, 23vw, 20rem);
+  font-size: clamp(2rem, var(--text-vw, 23vw), 20rem);
   font-weight: var(--font-weight-normal);
   letter-spacing: 0.1em;
   text-transform: lowercase;
@@ -570,7 +570,7 @@ body.index-body {
 
 .dream-parallax {
   font-family: inherit;
-  font-size: clamp(2rem, 23vw, 20rem);
+  font-size: clamp(2rem, var(--text-vw, 23vw), 20rem);
   font-weight: var(--font-weight-normal);
   letter-spacing: 0.1em;
   text-transform: lowercase;
@@ -621,7 +621,7 @@ body.index-body {
 /* Add RGB split to glitching slices */
 .dream-slice.glitching::before,
 .dream-slice.glitching::after {
-  content: 'dream';
+  content: attr(data-text);
   position: absolute;
   top: 0;
   left: 0;
@@ -677,3 +677,160 @@ body.index-body {
   from { transform: scale(50); }
   to { transform: scale(1); }
 }
+
+/* ==================================================
+   DREAM JOURNEY SECTIONS
+   ================================================== */
+
+.journey-section {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s ease-out;
+}
+
+.journey-section.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Journey text containers - no zoom animation */
+.journey-text {
+  transform: scale(1);
+  animation: none;
+}
+
+/* Font size scaling per word length */
+[data-section="intro"] .dream-text-container { --text-vw: 23vw; }  /* dream - 5 chars */
+[data-section="believe"] .dream-text-container { --text-vw: 16vw; } /* believe - 7 chars */
+[data-section="endeavor"] .dream-text-container { --text-vw: 14vw; } /* endeavor - 8 chars */
+[data-section="desire"] .dream-text-container { --text-vw: 18vw; } /* desire - 6 chars */
+[data-section="reprise"] .dream-text-container { --text-vw: 23vw; } /* dream - 5 chars */
+
+
+.journey-reveal {
+  font-family: var(--font-mono);
+  font-size: clamp(1rem, 4vw, 2.5rem);
+  color: var(--black);
+  opacity: 0;
+  margin-top: 2rem;
+  transition: opacity 2s var(--ease-out);
+}
+
+.journey-section.active .journey-reveal.visible {
+  opacity: 1;
+}
+
+/* Hide dream-overlay during black phase */
+.dream-overlay.hidden {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
+/* Reprise section - outside main overlay, uses multiply to show psychedelic through white text */
+.reprise-section {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--black);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+  mix-blend-mode: multiply;
+  transition: none;
+}
+
+.reprise-section.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Reprise text - white parallax layers for black background */
+.reprise-text {
+  transform: scale(1);
+  animation: none;
+  opacity: 0;
+  transition: none; /* Appears instantly via glitch */
+}
+
+.reprise-text.visible {
+  opacity: 1;
+}
+
+.reprise-text .dream-parallax {
+  color: var(--white);
+  mix-blend-mode: lighten;
+}
+
+.reprise-text .dream-parallax[data-layer="0"] {
+  color: #0ff;
+}
+
+.reprise-text .dream-parallax[data-layer="1"] {
+  color: var(--white);
+}
+
+.reprise-text .dream-parallax[data-layer="2"] {
+  color: #f00;
+}
+
+.reprise-text .dream-slice {
+  color: var(--white);
+}
+
+.reprise-section .journey-reveal {
+  font-family: var(--font-mono);
+  font-size: clamp(1rem, 4vw, 2.5rem);
+  color: var(--white);
+  opacity: 0;
+  margin-top: 2rem;
+  transition: none; /* Appears instantly via glitch */
+}
+
+.reprise-section .journey-word.visible,
+.reprise-section .journey-reveal.visible {
+  opacity: 1;
+}
+
+/* Conclusion section - white background (transitions from blob expand) */
+.conclusion-section {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--white);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 3;
+  transition: none;
+}
+
+.conclusion-section.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.conclusion-section .journey-word {
+  font-family: var(--font-mono);
+  font-size: clamp(1.5rem, 6vw, 4rem);
+  font-weight: var(--font-weight-light);
+  color: var(--black);
+  letter-spacing: 0.1em;
+  opacity: 0;
+  transition: none; /* Appears instantly via glitch */
+}
+
+.conclusion-section .journey-word.visible {
+  opacity: 1;
+}
+

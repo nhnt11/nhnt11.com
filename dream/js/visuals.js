@@ -132,11 +132,14 @@ const Visuals = (function() {
 
   // Pick effect
   const effectNames = Object.keys(EFFECTS);
+  // Effects excluded from random rotation (still accessible via console/debug)
+  const excludedFromRotation = ['voronoi', 'fractal'];
+  const rotationEffects = effectNames.filter(e => !excludedFromRotation.includes(e));
   const debugModeStored = localStorage.getItem('dream-debug') === 'true';
   const lastEffect = localStorage.getItem('dream-effect');
 
   function pickDifferentEffect(exclude) {
-    const available = effectNames.filter(e => e !== exclude);
+    const available = rotationEffects.filter(e => e !== exclude);
     return available[Math.floor(Math.random() * available.length)];
   }
 
@@ -144,7 +147,7 @@ const Visuals = (function() {
   if (debugModeStored && lastEffect && EFFECTS[lastEffect]) {
     primaryEffect = lastEffect;
   } else {
-    primaryEffect = effectNames[Math.floor(Math.random() * effectNames.length)];
+    primaryEffect = rotationEffects[Math.floor(Math.random() * rotationEffects.length)];
   }
   // Pick a different secondary effect for portal
   secondaryEffect = pickDifferentEffect(primaryEffect);
@@ -193,6 +196,7 @@ const Visuals = (function() {
   let lastFpsTime = performance.now();
   let fps = 0;
   let selectedParamIndex = 0;
+  let jHeld = false; // For J + number journey jump
 
   debugEl.style.display = debugMode ? 'block' : 'none';
 
@@ -276,6 +280,17 @@ const Visuals = (function() {
       const paramLines = formatParams(primaryParams).split('\n');
       lines.push(...paramLines.map(l => `  ${l}`));
       lines.push(``);
+
+      // Journey section
+      const sections = ['intro', 'believe', 'endeavor', 'desire', 'reprise', 'conclusion'];
+      const currentSection = typeof Journey !== 'undefined' ? Journey.getCurrentSection().id : 'unknown';
+      const sectionDisplay = sections.map((s, i) =>
+        s === currentSection ? `[${i + 1}]` : ` ${i + 1} `
+      ).join(' ');
+      lines.push(`  JOURNEY  ${currentSection}`);
+      lines.push(`  ${sectionDisplay}`);
+      lines.push(`  [J + 1-6] jump to section`);
+      lines.push(``);
       lines.push(`  [1-0] effect  [N/P] cycle  [\`] close`);
 
       // Calculate max width
@@ -310,8 +325,25 @@ const Visuals = (function() {
 
     const keys = Object.keys(primaryParams);
 
+    // Track J key for journey jumping
+    if (e.key === 'j' || e.key === 'J') {
+      jHeld = true;
+      return;
+    }
+
     if (e.key >= '0' && e.key <= '9') {
       const num = e.key === '0' ? 10 : parseInt(e.key);
+
+      // J + number = jump to journey section
+      if (jHeld && typeof Journey !== 'undefined') {
+        const sections = ['intro', 'believe', 'endeavor', 'desire', 'reprise', 'conclusion'];
+        if (num >= 1 && num <= sections.length) {
+          Journey.jumpTo(sections[num - 1]);
+        }
+        return;
+      }
+
+      // Otherwise switch effect
       const effectName = effectNames[num - 1];
       if (effectName) switchEffect(effectName);
       return;
@@ -374,6 +406,13 @@ const Visuals = (function() {
       case '=':
         feedbackDecay = Math.min(1, feedbackDecay + 0.01);
         break;
+    }
+  });
+
+  // Reset jHeld on key up
+  document.addEventListener('keyup', (e) => {
+    if (e.key === 'j' || e.key === 'J') {
+      jHeld = false;
     }
   });
 
@@ -599,7 +638,7 @@ const Visuals = (function() {
   }
 
   function pickRandomEffects(count) {
-    const shuffled = [...effectNames].sort(() => Math.random() - 0.5);
+    const shuffled = [...rotationEffects].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, count);
   }
 
@@ -614,7 +653,7 @@ const Visuals = (function() {
   function exitChaosMode() {
     chaosMode = false;
     chaosEffects = [];
-    primaryEffect = effectNames[Math.floor(Math.random() * effectNames.length)];
+    primaryEffect = rotationEffects[Math.floor(Math.random() * rotationEffects.length)];
     primaryParams = EFFECTS[primaryEffect].params();
     program = programs[primaryEffect];
     secondaryEffect = pickDifferentEffect(primaryEffect);
