@@ -623,9 +623,16 @@ const Visuals = (function() {
     });
   }
 
+  // Palettes excluded from random rotation (still accessible via console/debug)
+  const excludedPalettes = [6]; // Neon
+
   function randomizePalette() {
     if (primaryParams.palette !== undefined) {
-      primaryParams.palette = Math.floor(Math.random() * PALETTE_COUNT);
+      const available = [];
+      for (let i = 0; i < PALETTE_COUNT; i++) {
+        if (!excludedPalettes.includes(i)) available.push(i);
+      }
+      primaryParams.palette = available[Math.floor(Math.random() * available.length)];
     }
   }
 

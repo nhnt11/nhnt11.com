@@ -33,8 +33,17 @@ function generatePaletteGLSL() {
   return code;
 }
 
-// Pick a random palette (including full spectrum as last option)
-const randomPalette = () => Math.floor(Math.random() * PALETTE_COUNT);
+// Palettes excluded from random rotation (still accessible via console/debug)
+const excludedPalettes = [6]; // Neon
+
+// Pick a random palette, excluding certain palettes from rotation
+const randomPalette = () => {
+  const available = [];
+  for (let i = 0; i < PALETTE_COUNT; i++) {
+    if (!excludedPalettes.includes(i)) available.push(i);
+  }
+  return available[Math.floor(Math.random() * available.length)];
+};
 
 const GLSL_COMMON = `
   precision highp float;
