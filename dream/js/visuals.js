@@ -157,11 +157,11 @@ const Visuals = (function() {
   let secondaryParams = EFFECTS[secondaryEffect].params();
   let program = programs[primaryEffect];
 
-  // Crossfade state (triggered by glitch, not timed)
-  let crossfadeProgress = 0;
+  // Glitch transition state (instant swap mid-glitch, not gradual blend)
   let crossfadeActive = false;
   let crossfadeStartTime = 0;
-  const CROSSFADE_DURATION = 4000; // 4 seconds
+  let effectSwapped = false; // Track if we've swapped effects mid-glitch
+  const CROSSFADE_DURATION = 600; // Time for glitch to settle after swap
   const CROSSFADE_PROBABILITY = 0.5; // 50% chance per glitch
 
   const startTime = performance.now();
@@ -260,7 +260,7 @@ const Visuals = (function() {
     }
 
     if (debugMode) {
-      const crossfadeStatus = crossfadeActive ? `fade ${(crossfadeProgress * 100).toFixed(0)}%` : 'stable';
+      const crossfadeStatus = crossfadeActive ? (effectSwapped ? 'glitching' : 'swapping') : 'stable';
       const fb = feedbackEnabled ? 'ON ' : 'off';
 
       const lines = [
@@ -521,22 +521,28 @@ const Visuals = (function() {
   function updateCrossfade(now) {
     if (!crossfadeActive) return;
 
-    // Update crossfade progress
-    crossfadeProgress = Math.min(1, (now - crossfadeStartTime) / CROSSFADE_DURATION);
+    // Track time for swap timing
+    const elapsed = now - crossfadeStartTime;
 
-    if (crossfadeProgress >= 1) {
-      // Crossfade complete - swap effects
+    // Swap effects mid-glitch (at ~200ms when glitch is peaking)
+    if (!effectSwapped && elapsed >= 200) {
+      // Instant swap - no blending
       primaryEffect = secondaryEffect;
       primaryParams = secondaryParams;
       program = programs[primaryEffect];
       localStorage.setItem('dream-effect', primaryEffect);
 
-      // Pick new secondary
+      // Pick new secondary for next transition
       secondaryEffect = pickDifferentEffect(primaryEffect);
       secondaryParams = EFFECTS[secondaryEffect].params();
 
+      effectSwapped = true;
+    }
+
+    // End crossfade after glitch settles
+    if (elapsed >= CROSSFADE_DURATION) {
       crossfadeActive = false;
-      crossfadeProgress = 0;
+      effectSwapped = false;
     }
   }
 
@@ -544,7 +550,9 @@ const Visuals = (function() {
     if (crossfadeActive || chaosMode) return;
     crossfadeActive = true;
     crossfadeStartTime = performance.now();
-    crossfadeProgress = 0;
+    effectSwapped = false;
+    // Trigger glitch to mask the transition
+    glitchIntensity = 1;
   }
 
   function render() {
@@ -572,18 +580,8 @@ const Visuals = (function() {
       // Render current effect to fbA
       renderEffect(primaryEffect, primaryParams, t, fbA);
 
-      // Apply crossfade if active
-      if (crossfadeActive) {
-        renderEffect(secondaryEffect, secondaryParams, t, fbB);
-        const easedBlend = crossfadeProgress < 0.5
-          ? 2 * crossfadeProgress * crossfadeProgress
-          : 1 - Math.pow(-2 * crossfadeProgress + 2, 2) / 2;
-        // Composite effects into fbCurr
-        compositeEffects(fbA.texture, fbB.texture, easedBlend, fbCurr);
-      } else {
-        // Copy fbA to fbCurr
-        compositeEffects(fbA.texture, fbA.texture, 0, fbCurr);
-      }
+      // Copy fbA to fbCurr (no blending - glitch masks instant swap)
+      compositeEffects(fbA.texture, fbA.texture, 0, fbCurr);
 
       // Apply feedback: blend new frame with transformed previous frame, output to screen
       applyFeedback(fbCurr.texture, fbPrev.texture, null);
@@ -596,16 +594,8 @@ const Visuals = (function() {
       const temp = fbPrev;
       fbPrev = fbCurr;
       fbCurr = temp;
-    } else if (crossfadeActive) {
-      // Multi-pass rendering for crossfade only
-      renderEffect(primaryEffect, primaryParams, t, fbA);
-      renderEffect(secondaryEffect, secondaryParams, t, fbB);
-      const easedBlend = crossfadeProgress < 0.5
-        ? 2 * crossfadeProgress * crossfadeProgress
-        : 1 - Math.pow(-2 * crossfadeProgress + 2, 2) / 2;
-      compositeEffects(fbA.texture, fbB.texture, easedBlend, null);
     } else {
-      // Simple single-pass rendering
+      // Single-pass rendering - glitch masks instant effect swap
       renderEffect(primaryEffect, primaryParams, t, null);
     }
 
@@ -624,7 +614,7 @@ const Visuals = (function() {
   }
 
   // Palettes excluded from random rotation (still accessible via console/debug)
-  const excludedPalettes = [6]; // Neon
+  const excludedPalettes = [4, 6]; // Toxic, Neon
 
   function randomizePalette() {
     if (primaryParams.palette !== undefined) {

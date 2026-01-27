@@ -34,7 +34,7 @@ function generatePaletteGLSL() {
 }
 
 // Palettes excluded from random rotation (still accessible via console/debug)
-const excludedPalettes = [6]; // Neon
+const excludedPalettes = [4, 6]; // Toxic, Neon
 
 // Pick a random palette, excluding certain palettes from rotation
 const randomPalette = () => {

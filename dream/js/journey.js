@@ -47,7 +47,7 @@ const Journey = (function() {
   let dreamOverlay = null;
 
   // Timing
-  const TRANSITION_DURATION = 1500;
+  const TRANSITION_DURATION = 2200; // Accounts for two-phase text transitions
 
   function getCurrentSection() {
     return sections[currentSectionIndex];
@@ -85,6 +85,9 @@ const Journey = (function() {
     return currentSectionIndex < sections.length - 1;
   }
 
+  // Timing for two-phase text transitions
+  const TEXT_TRANSITION_GAP = 400; // Pause between hide and reveal
+
   function advance() {
     if (!canAdvance()) return false;
 
@@ -99,6 +102,10 @@ const Journey = (function() {
     // The blob despawn fragments will be visible on the black background
     const isDesireToReprise = section.id === 'desire';
 
+    // Text sections use two-phase glitch (hide current, pause, reveal new)
+    const textSections = ['intro', 'believe', 'endeavor'];
+    const isTextTransition = textSections.includes(section.id);
+
     if (isDesireToReprise) {
       // Instant transition to black - no glitch
       currentSubsectionIndex = 0;
@@ -112,8 +119,61 @@ const Journey = (function() {
 
       // Update DOM immediately (shows black)
       updateDOM();
+    } else if (isTextTransition && typeof Glitch !== 'undefined') {
+      // Two-phase transition: glitch out → pause → glitch in
+      // Phase 1: Glitch to hide current text
+      Glitch.triggerHeavy(() => {
+        // Hide current section mid-glitch
+        const currentEl = sectionElements[section.id];
+        if (currentEl) currentEl.classList.remove('active');
+      });
+
+      // Phase 2: After pause, glitch to reveal new text
+      setTimeout(() => {
+        // Advance state
+        if (section.subsections && currentSubsectionIndex < section.subsections.length - 1) {
+          prevSubsection = section.subsections[currentSubsectionIndex].id;
+          currentSubsectionIndex++;
+        } else {
+          currentSubsectionIndex = 0;
+          currentSectionIndex++;
+        }
+
+        const newSection = getCurrentSection();
+        const newSubsection = getCurrentSubsection();
+
+        // Update blob mood
+        const blobConfig = getCurrentBlobConfig();
+        if (typeof Blob !== 'undefined' && blobConfig) {
+          Blob.setMood(blobConfig.mood);
+        }
+
+        // Notify handlers
+        const event = {
+          from: { section: prevSection, subsection: prevSubsection },
+          to: {
+            section: newSection.id,
+            subsection: newSubsection ? newSubsection.id : null
+          },
+          blobConfig: blobConfig
+        };
+        transitionHandlers.forEach(fn => fn(event));
+
+        // Glitch to reveal new text
+        Glitch.triggerHeavy(() => {
+          // Show new section mid-glitch
+          const newEl = sectionElements[newSection.id];
+          if (newEl) newEl.classList.add('active');
+
+          // Set blob behavior for new section
+          if (typeof Blob !== 'undefined') {
+            Blob.setShouldDespawn(newSection.id === 'desire');
+            Blob.setDespawnLingerTime(newSection.id === 'desire' ? 1.2 : 0);
+          }
+        });
+      }, 800 + TEXT_TRANSITION_GAP); // 800ms for first glitch + gap
     } else if (typeof Glitch !== 'undefined') {
-      // Normal transition with heavy glitch
+      // Normal transition with heavy glitch (for non-text sections)
       Glitch.triggerHeavy(() => {
         // This fires mid-glitch - do the actual section change here
         if (section.subsections && currentSubsectionIndex < section.subsections.length - 1) {
