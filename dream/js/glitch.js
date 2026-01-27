@@ -94,8 +94,8 @@ const Glitch = (function() {
   function triggerHeavy(onMidGlitch) {
     isGlitching = true;
 
-    // Always trigger visual glitch
-    Visuals.randomizePalette();
+    // Always trigger visual glitch (seeded for section transitions)
+    Visuals.randomizePalette(true);
     Visuals.triggerGlitch();
 
     const heavyGlitchDuration = 800;

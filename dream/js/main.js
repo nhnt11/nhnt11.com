@@ -47,6 +47,9 @@ if (typeof Blob !== 'undefined' && Blob.isMobileDevice()) {
 │                                                             │
 │  dream.current()        - current effect name              │
 │  dream.portal()         - secondary effect (portal)        │
+│  dream.seed()           - get RNG seed (reproducible)      │
+│  dream.seed(n)          - set RNG seed                     │
+│  dream.newSeed()        - clear stored seed and reload     │
 │                                                             │
 │  dream.blob.position()  - get blob position                │
 │  dream.blob.target(x,y) - set blob target                  │
@@ -85,6 +88,8 @@ if (typeof Blob !== 'undefined' && Blob.isMobileDevice()) {
     separation: separationFn,
     current: Visuals.getCurrentEffect,
     portal: () => Visuals.getSecondaryEffect().name,
+    seed: (val) => val === undefined ? Visuals.getSeed() : Visuals.setSeed(val),
+    newSeed: Visuals.clearSeedAndReload,
     blob: {
       position: Blob.getPosition,
       target: Blob.setTarget,

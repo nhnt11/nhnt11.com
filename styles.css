@@ -760,7 +760,7 @@ body.index-body {
   animation: none;
   opacity: 0;
   transition: none; /* Appears instantly via glitch */
-  white-space: nowrap;
+  text-align: center;
 }
 
 .reprise-text.visible {
@@ -833,11 +833,8 @@ body.index-body {
   opacity: 1;
 }
 
-/* Mobile: center-align reprise and conclusion text */
+/* Mobile: center-align conclusion text */
 @media (hover: none) and (pointer: coarse) {
-  .reprise-text {
-    text-align: center;
-  }
   .conclusion-section .journey-word {
     text-align: center;
   }

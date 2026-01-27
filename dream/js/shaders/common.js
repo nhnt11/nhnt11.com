@@ -42,7 +42,7 @@ const randomPalette = () => {
   for (let i = 0; i < PALETTE_COUNT; i++) {
     if (!excludedPalettes.includes(i)) available.push(i);
   }
-  return available[Math.floor(Math.random() * available.length)];
+  return available[Math.floor(RNG.next() * available.length)];
 };
 
 const GLSL_COMMON = `

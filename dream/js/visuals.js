@@ -4,6 +4,11 @@ const Visuals = (function() {
   const canvas = document.getElementById('psychedelic-canvas');
   const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
 
+  // Use global RNG for seeded random
+  function seededRandom() {
+    return RNG.next();
+  }
+
   // Mobile detection
   const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
@@ -138,23 +143,16 @@ const Visuals = (function() {
   // Effects excluded from random rotation (still accessible via console/debug)
   const excludedFromRotation = ['voronoi', 'fractal'];
   const rotationEffects = effectNames.filter(e => !excludedFromRotation.includes(e));
-  const debugModeStored = localStorage.getItem('dream-debug') === 'true';
-  const lastEffect = localStorage.getItem('dream-effect');
 
   function pickDifferentEffect(exclude) {
     const available = rotationEffects.filter(e => e !== exclude);
-    return available[Math.floor(Math.random() * available.length)];
+    return available[Math.floor(seededRandom() * available.length)];
   }
 
-  let primaryEffect, secondaryEffect;
-  if (debugModeStored && lastEffect && EFFECTS[lastEffect]) {
-    primaryEffect = lastEffect;
-  } else {
-    primaryEffect = rotationEffects[Math.floor(Math.random() * rotationEffects.length)];
-  }
+  // Always use seeded random for initial effect selection
+  let primaryEffect = rotationEffects[Math.floor(seededRandom() * rotationEffects.length)];
   // Pick a different secondary effect for portal
-  secondaryEffect = pickDifferentEffect(primaryEffect);
-  localStorage.setItem('dream-effect', primaryEffect);
+  let secondaryEffect = pickDifferentEffect(primaryEffect);
 
   let primaryParams = EFFECTS[primaryEffect].params();
   let secondaryParams = EFFECTS[secondaryEffect].params();
@@ -209,7 +207,6 @@ const Visuals = (function() {
       primaryParams = EFFECTS[name].params();
       program = programs[name];
       selectedParamIndex = 0;
-      localStorage.setItem('dream-effect', name);
       // Pick new secondary effect
       secondaryEffect = pickDifferentEffect(name);
       secondaryParams = EFFECTS[secondaryEffect].params();
@@ -269,6 +266,7 @@ const Visuals = (function() {
       const lines = [
         `  EFFECT   ${primaryEffect}`,
         `  portal   ${secondaryEffect} (${crossfadeStatus})`,
+        `  seed     ${RNG.getSeed()}  [S] new seed`,
         ``,
         `  FEEDBACK [F] ${fb}`,
         `    amount ${feedbackAmount.toFixed(2)}  [[]]    zoom ${feedbackZoom.toFixed(3)}   [,.]`,
@@ -383,6 +381,10 @@ const Visuals = (function() {
       case 'r':
       case 'R':
         primaryParams = EFFECTS[primaryEffect].params();
+        break;
+      case 's':
+      case 'S':
+        RNG.clearAndReload();
         break;
       // Feedback controls
       case '[':
@@ -533,7 +535,6 @@ const Visuals = (function() {
       primaryEffect = secondaryEffect;
       primaryParams = secondaryParams;
       program = programs[primaryEffect];
-      localStorage.setItem('dream-effect', primaryEffect);
 
       // Pick new secondary for next transition
       secondaryEffect = pickDifferentEffect(primaryEffect);
@@ -622,25 +623,28 @@ const Visuals = (function() {
   // Palettes excluded from random rotation (still accessible via console/debug)
   const excludedPalettes = [0, 4, 6]; // Lava, Toxic, Neon
 
-  function randomizePalette() {
+  // Randomize palette - seeded for section transitions, Math.random() for user glitches
+  function randomizePalette(seeded = false) {
     if (primaryParams.palette !== undefined) {
       const available = [];
       for (let i = 0; i < PALETTE_COUNT; i++) {
         if (!excludedPalettes.includes(i)) available.push(i);
       }
-      primaryParams.palette = available[Math.floor(Math.random() * available.length)];
+      const rand = seeded ? seededRandom() : Math.random();
+      primaryParams.palette = available[Math.floor(rand * available.length)];
     }
   }
 
   function triggerGlitch() {
     glitchIntensity = 1;
-    // Chance to trigger effect transition
+    // Chance to trigger effect transition (use Math.random, not seeded)
     if (Math.random() < CROSSFADE_PROBABILITY) {
       startCrossfade();
     }
   }
 
   function pickRandomEffects(count) {
+    // Chaos mode uses Math.random, not seeded
     const shuffled = [...rotationEffects].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, count);
   }
@@ -656,6 +660,7 @@ const Visuals = (function() {
   function exitChaosMode() {
     chaosMode = false;
     chaosEffects = [];
+    // Chaos mode uses Math.random, not seeded
     primaryEffect = rotationEffects[Math.floor(Math.random() * rotationEffects.length)];
     primaryParams = EFFECTS[primaryEffect].params();
     program = programs[primaryEffect];
@@ -674,6 +679,7 @@ const Visuals = (function() {
     }
 
     // Only re-roll params every N frames (N randomized between 6-12)
+    // Chaos mode uses Math.random, not seeded
     if (chaosParamFrame >= chaosParamPersist) {
       chaosParams = {};
       for (const name of chaosEffects) {
@@ -783,6 +789,9 @@ const Visuals = (function() {
     init, randomizePalette, triggerGlitch, startCrossfade, enterChaosMode, exitChaosMode,
     getMouse, getSecondaryEffect, getCurrentEffect,
     setEffect, getEffects, getParams, setParam,
-    toggleFeedback, setFeedback, getFeedback
+    toggleFeedback, setFeedback, getFeedback,
+    getSeed: RNG.getSeed,
+    setSeed: RNG.setSeed,
+    clearSeedAndReload: RNG.clearAndReload
   };
 })();

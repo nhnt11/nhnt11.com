@@ -497,7 +497,7 @@ const Journey = (function() {
       }
     } else if (repriseStage === 1) {
       // Transition to "something worth living for"
-      const livingForText = isMobile ? 'something worth\nliving for' : 'something worth living for';
+      const livingForText = 'something worth\nliving for';
       if (typeof Glitch !== 'undefined') {
         Glitch.triggerQuick(() => {
           hideRepriseText();
@@ -517,14 +517,14 @@ const Journey = (function() {
       }
     } else if (repriseStage === 2) {
       // Transition to "something worth dying for" then immediately start blob building
-      const dyingForText = isMobile ? 'something worth\ndying for' : 'something worth dying for';
+      const dyingForText = 'something worth\ndying for';
       if (typeof Glitch !== 'undefined') {
         const currentWidth = container.offsetWidth;
         container.style.minWidth = currentWidth + 'px';
         container.style.textAlign = 'left';
 
         Glitch.triggerQuick(() => {
-          setRepriseText('something worth', true);
+          setRepriseText('something worth\n\u00A0', true); // Keep two lines to prevent layout shift
         });
         setTimeout(() => {
           Glitch.triggerHeavy(() => {
