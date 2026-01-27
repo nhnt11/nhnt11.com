@@ -82,12 +82,30 @@ const Blob = (function() {
   const TRAIL_LIFETIME = 0.6; // seconds before fully faded
   const TRAIL_RADIUS = 4;
 
-  function spawnTrailFragment(x, y, useRGB = false) {
+  function spawnTrailFragment(x, y, useRGB = false, explodeFrom = null) {
     // Spawn a small trail fragment at the given position
     // If useRGB is true, pick a random RGB color; otherwise white
+    // If explodeFrom is provided {x, y}, fragment will drift outward from that point
     let color = null;
     if (useRGB) {
       color = RGB_COLORS[Math.floor(Math.random() * RGB_COLORS.length)];
+    }
+
+    let driftX, driftY;
+    let isExplosion = false;
+    if (explodeFrom) {
+      // Explode outward from the given point
+      const dx = x - explodeFrom.x;
+      const dy = y - explodeFrom.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const speed = 60 + Math.random() * 180; // 60-240 px/s outward (wide range)
+      driftX = (dx / dist) * speed;
+      driftY = (dy / dist) * speed;
+      isExplosion = true;
+    } else {
+      // Slight drift in random direction
+      driftX = (Math.random() - 0.5) * 20;
+      driftY = (Math.random() - 0.5) * 20 - 10; // Slight upward bias
     }
 
     trailFragments.push({
@@ -97,9 +115,9 @@ const Blob = (function() {
       opacity: 0.8,
       age: 0,
       color: color, // null = white, otherwise RGB
-      // Slight drift in random direction
-      driftX: (Math.random() - 0.5) * 20,
-      driftY: (Math.random() - 0.5) * 20 - 10 // Slight upward bias
+      driftX: driftX,
+      driftY: driftY,
+      isExplosion: isExplosion // Explosion fragments persist until off-screen
     });
   }
 
@@ -113,12 +131,21 @@ const Blob = (function() {
       frag.x += frag.driftX * dt;
       frag.y += frag.driftY * dt;
 
-      // Fade out
-      frag.opacity = 0.8 * (1 - frag.age / TRAIL_LIFETIME);
+      if (frag.isExplosion) {
+        // Explosion fragments: stay full opacity, remove when off-screen
+        const margin = 50;
+        if (frag.x < -margin || frag.x > width + margin ||
+            frag.y < -margin || frag.y > height + margin) {
+          trailFragments.splice(i, 1);
+        }
+      } else {
+        // Normal fragments: fade out over time
+        frag.opacity = 0.8 * (1 - frag.age / TRAIL_LIFETIME);
 
-      // Remove when faded
-      if (frag.age >= TRAIL_LIFETIME) {
-        trailFragments.splice(i, 1);
+        // Remove when faded
+        if (frag.age >= TRAIL_LIFETIME) {
+          trailFragments.splice(i, 1);
+        }
       }
     }
   }
@@ -203,8 +230,8 @@ const Blob = (function() {
   }
 
   function updateCursorState() {
-    // Not clickable if not visible, not emerged, or will auto-expand
-    if (!state.visible || !state.emerged || shouldExpandOnClick) {
+    // Not clickable if not visible or not emerged
+    if (!state.visible || !state.emerged) {
       canvas.style.pointerEvents = 'none';
       canvas.style.cursor = 'default';
       cursorNearBlob = false;
@@ -576,14 +603,7 @@ const Blob = (function() {
       state.opacity = 1;
       state.radius = targetRadius;
       fragments.length = 0;
-
-      // Auto-trigger expand if shouldExpandOnClick is set (e.g., reprise section)
-      if (shouldExpandOnClick) {
-        startExpand(() => {
-          // Notify click handlers after expand completes (triggers advance to conclusion)
-          clickHandlers.forEach(fn => fn());
-        });
-      }
+      // If shouldExpandOnClick is set, blob waits for click to trigger expand (no auto-expand)
     }
   }
 
@@ -915,9 +935,32 @@ const Blob = (function() {
   function renderMainBlob() {
     if (state.opacity <= 0 || state.radius <= 0) return;
 
-    // Calculate wobble offset (only when emerged)
-    const wobbleX = state.emerged ? Math.sin(state.wobblePhase) * movement.wobbleAmount : 0;
-    const wobbleY = state.emerged ? Math.cos(state.wobblePhase * 0.7) * movement.wobbleAmount : 0;
+    let wobbleX = 0;
+    let wobbleY = 0;
+
+    if (state.emerged && shouldExpandOnClick) {
+      // Fully built reprise blob: keep vibrating at max intensity until clicked
+      const vibrateAmount = 12;
+      const vibrateSpeed = 40;
+      wobbleX = Math.sin(state.wobblePhase * vibrateSpeed) * vibrateAmount;
+      wobbleY = Math.cos(state.wobblePhase * vibrateSpeed * 1.3) * vibrateAmount;
+    } else if (state.emerged) {
+      // Normal wobble when fully emerged
+      wobbleX = Math.sin(state.wobblePhase) * movement.wobbleAmount;
+      wobbleY = Math.cos(state.wobblePhase * 0.7) * movement.wobbleAmount;
+    } else if (state.emerging && interactiveSpawn) {
+      // During interactive spawn: vibrate more vigorously as blob grows
+      const targetRadius = state.baseRadius * radiusMultiplier;
+      const growthRatio = state.radius / targetRadius; // 0 to 1
+
+      // Vibration intensity increases with size (starts small, gets intense)
+      const vibrateAmount = growthRatio * growthRatio * 12; // Up to 12px at full size
+      // Vibration speed also increases
+      const vibrateSpeed = 15 + growthRatio * 25; // Gets faster as it grows
+
+      wobbleX = Math.sin(state.wobblePhase * vibrateSpeed) * vibrateAmount;
+      wobbleY = Math.cos(state.wobblePhase * vibrateSpeed * 1.3) * vibrateAmount;
+    }
 
     const x = state.x + wobbleX;
     const y = state.y + wobbleY;
@@ -1013,6 +1056,23 @@ const Blob = (function() {
 
     // Create despawn fragments at current blob position
     createDespawnFragments();
+  }
+
+  function spawnAt(x, y) {
+    // Instantly spawn blob at given position (no emergence animation)
+    state.visible = true;
+    state.emerging = false;
+    state.emerged = true;
+    state.opacity = 1;
+    state.x = x;
+    state.y = y;
+    state.targetX = x;
+    state.targetY = y;
+    state.radius = state.baseRadius * radiusMultiplier;
+    state.despawning = false;
+    state.bursting = false;
+    state.expanding = false;
+    fragments.length = 0;
   }
 
   function init() {
@@ -1147,6 +1207,7 @@ const Blob = (function() {
     despawn: startDespawn,
     hide,
     respawn,
+    spawnAt,
     setShouldDespawn,
     setShouldExpand,
     setFragmentMultiplier,

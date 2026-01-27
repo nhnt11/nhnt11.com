@@ -92,31 +92,35 @@ const Journey = (function() {
   let repriseMouseX = 0, repriseMouseY = 0;
   let repriseMovement = 0;
   let repriseTrailAccumulator = 0; // Accumulates movement for trail fragment spawning
-  const TRAIL_SPAWN_DISTANCE = 25; // Pixels of movement to spawn one trail fragment
+  const TRAIL_SPAWN_DISTANCE_MAX = 40; // Pixels per fragment at 0% progress
+  const TRAIL_SPAWN_DISTANCE_MIN = 10; // Pixels per fragment at 100% progress
   let repriseStage = 0; // 0=waiting, 1=dream shown, 2=living for shown, 3=dying for shown, 4=blob spawning
   let repriseTransitioning = false; // Prevent multiple triggers during glitch
   let repriseClickReady = false; // True when enough movement accumulated, waiting for click
   let repriseReadySpawnInterval = null; // Interval for spawning fragments while waiting for click
-  const READY_SPAWN_INTERVAL = 80; // ms between fragment spawns when click-ready
+  const READY_SPAWN_INTERVAL = 50; // ms between fragment spawns when click-ready
+  const READY_SPAWN_COUNT = 2; // Number of fragments per interval when click-ready
   let repriseContainer = null; // Cached container reference
   let repriseSetText = null; // Cached setText function
   const REPRISE_THRESHOLDS = [
-    200,   // Stage 0→1: blackness → "dream"
-    300,   // Stage 1→2: "dream" → "something worth living for"
-    600,   // Stage 2→3: "living for" → "dying for" (2x for longer pause)
-    100    // Stage 3→4: spawn blob
+    1500,  // Stage 0→1: blackness → "dream"
+    1500,  // Stage 1→2: "dream" → "something worth living for"
+    1500,  // Stage 2→3: "living for" → "dying for"
+    1500   // Stage 3→4: spawn blob
   ];
 
   function startReadySpawnInterval() {
     if (repriseReadySpawnInterval) return; // Already running
     repriseReadySpawnInterval = setInterval(() => {
       if (repriseMouseX !== 0 && repriseMouseY !== 0 && typeof Blob !== 'undefined') {
-        // Spawn a fragment at random offset from last mouse position
-        const angle = Math.random() * Math.PI * 2;
-        const offset = Math.random() * 30;
-        const spawnX = repriseMouseX + Math.cos(angle) * offset;
-        const spawnY = repriseMouseY + Math.sin(angle) * offset;
-        Blob.spawnTrailFragment(spawnX, spawnY);
+        // Spawn multiple fragments per interval for vigorous effect
+        for (let i = 0; i < READY_SPAWN_COUNT; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const offset = Math.random() * 30;
+          const spawnX = repriseMouseX + Math.cos(angle) * offset;
+          const spawnY = repriseMouseY + Math.sin(angle) * offset;
+          Blob.spawnTrailFragment(spawnX, spawnY, false); // White when ready
+        }
       }
     }, READY_SPAWN_INTERVAL);
   }
@@ -129,14 +133,10 @@ const Journey = (function() {
   }
 
   function updateRepriseCursor() {
-    // Show pointer cursor when click is ready (stages 0-3 only)
+    // Cursor is handled by the blob (shows pointer on hover)
     const currentSection = getCurrentSection();
-    if (currentSection.id === 'reprise' && repriseClickReady && repriseStage < 4) {
-      document.body.style.cursor = 'pointer';
-      startReadySpawnInterval();
-    } else if (currentSection.id === 'reprise') {
+    if (currentSection.id === 'reprise') {
       document.body.style.cursor = '';
-      stopReadySpawnInterval();
     }
   }
 
@@ -154,8 +154,16 @@ const Journey = (function() {
       // Spawn RGB trail fragments as feedback during charging (before stage 4, not yet click-ready)
       if (repriseStage < 4 && !repriseClickReady && typeof Blob !== 'undefined') {
         repriseTrailAccumulator += distance;
-        while (repriseTrailAccumulator >= TRAIL_SPAWN_DISTANCE) {
-          repriseTrailAccumulator -= TRAIL_SPAWN_DISTANCE;
+
+        // Calculate progress toward threshold (0 to 1)
+        const threshold = REPRISE_THRESHOLDS[repriseStage];
+        const progress = Math.min(1, repriseMovement / threshold);
+
+        // Spawn distance decreases as we approach threshold (more dense trail)
+        const spawnDistance = TRAIL_SPAWN_DISTANCE_MAX - (TRAIL_SPAWN_DISTANCE_MAX - TRAIL_SPAWN_DISTANCE_MIN) * progress;
+
+        while (repriseTrailAccumulator >= spawnDistance) {
+          repriseTrailAccumulator -= spawnDistance;
           // Random offset up to 30px from mouse position
           const angle = Math.random() * Math.PI * 2;
           const offset = Math.random() * 30;
@@ -169,11 +177,27 @@ const Journey = (function() {
       if (!repriseTransitioning && repriseStage < 4 && !repriseClickReady) {
         repriseMovement += distance;
 
-        // Check if threshold reached - enable click instead of auto-advancing
+        // Check if threshold reached - spawn blob for them to click
         const threshold = REPRISE_THRESHOLDS[repriseStage];
         if (repriseMovement >= threshold) {
           repriseClickReady = true;
-          updateRepriseCursor();
+
+          // Burst of white fragments exploding outward to signal ready state
+          if (typeof Blob !== 'undefined') {
+            const burstCount = 15 + Math.floor(Math.random() * 6); // 15-20 fragments
+            const center = { x: e.clientX, y: e.clientY };
+            for (let i = 0; i < burstCount; i++) {
+              const angle = (i / burstCount) * Math.PI * 2 + Math.random() * 0.3; // Even spread with slight randomness
+              const offset = 10 + Math.random() * 20; // Start slightly away from center
+              const spawnX = e.clientX + Math.cos(angle) * offset;
+              const spawnY = e.clientY + Math.sin(angle) * offset;
+              Blob.spawnTrailFragment(spawnX, spawnY, false, center); // White, explode from center
+            }
+
+            // Spawn blob at cursor position - clicking it advances the stage
+            Blob.setShouldDespawn(true);
+            Blob.spawnAt(e.clientX, e.clientY);
+          }
         }
       }
 
@@ -235,7 +259,7 @@ const Journey = (function() {
         repriseTransitioning = false;
       }
     } else if (repriseStage === 2) {
-      // Transition to "something worth dying for"
+      // Transition to "something worth dying for" then immediately start blob building
       if (typeof Glitch !== 'undefined') {
         const currentWidth = container.offsetWidth;
         container.style.minWidth = currentWidth + 'px';
@@ -251,27 +275,29 @@ const Journey = (function() {
             container.style.textAlign = '';
             repriseStage = 3;
             repriseTransitioning = false;
+
+            // Immediately start blob building (no extra move+click needed)
+            startBlobBuilding();
           });
         }, 250 + TEXT_TRANSITION_GAP);
       } else {
         setRepriseText('something worth dying for', true);
         repriseStage = 3;
         repriseTransitioning = false;
+        startBlobBuilding();
       }
-    } else if (repriseStage === 3) {
-      // Spawn blob
-      if (typeof Blob !== 'undefined') {
-        Blob.setFragmentMultiplier(12);
-        Blob.setInteractiveSpawn(true);
-        Blob.setShouldExpand(true);
-        Blob.setRadiusMultiplier(2);
-        Blob.respawn();
-      }
-      repriseStage = 4;
-      repriseTransitioning = false;
-      // Show pointer cursor during blob building
-      document.body.style.cursor = 'pointer';
     }
+  }
+
+  function startBlobBuilding() {
+    if (typeof Blob !== 'undefined') {
+      Blob.setFragmentMultiplier(12);
+      Blob.setInteractiveSpawn(true);
+      Blob.setShouldExpand(true);
+      Blob.setRadiusMultiplier(2);
+      Blob.respawn();
+    }
+    repriseStage = 4;
   }
 
   function resetRepriseState() {
@@ -596,7 +622,17 @@ const Journey = (function() {
     // Wire up blob click to advance
     if (typeof Blob !== 'undefined') {
       Blob.onBlobClick(() => {
-        advance();
+        const currentSection = getCurrentSection();
+        if (currentSection.id === 'reprise' && repriseClickReady && repriseStage < 3) {
+          // In reprise, clicking blob advances the reprise stage
+          repriseClickReady = false;
+          repriseMovement = 0;
+          repriseTrailAccumulator = 0;
+          advanceRepriseStage();
+        } else {
+          // Normal section advancement
+          advance();
+        }
       });
 
       // Reset cursor when blob expand (whitewash) starts
@@ -625,24 +661,9 @@ const Journey = (function() {
     const currentSection = getCurrentSection();
     if (currentSection.id !== 'reprise' || repriseTransitioning) return;
 
-    // A click counts as 3-5 fragments
-    const fragmentCount = 3 + Math.floor(Math.random() * 3); // 3, 4, or 5
-
-    if (repriseStage < 4) {
-      // Before blob spawns: only advance if click is ready (enough mouse movement accumulated)
-      if (repriseClickReady) {
-        // Reset for next stage
-        repriseClickReady = false;
-        repriseMovement = 0;
-        repriseTrailAccumulator = 0;
-        document.body.style.cursor = '';
-        stopReadySpawnInterval();
-        advanceRepriseStage();
-      }
-      // If not ready, clicking does nothing (no trail fragments, no movement added)
-    } else {
-      // Stage 4: blob is building - add to interactive spawn movement
-      // MOVEMENT_PER_FRAGMENT in blob.js is 35, so 3-5 fragments = 105-175px
+    // Stage 4: blob is building - clicks add to interactive spawn movement
+    if (repriseStage >= 4) {
+      const fragmentCount = 3 + Math.floor(Math.random() * 3); // 3, 4, or 5
       const BLOB_MOVEMENT_PER_FRAGMENT = 35;
       const movementValue = fragmentCount * BLOB_MOVEMENT_PER_FRAGMENT;
 
@@ -650,6 +671,7 @@ const Journey = (function() {
         Blob.addInteractiveMovement(movementValue);
       }
     }
+    // Stages 0-3: clicking the blob handles advancement (via onBlobClick handler)
   }
 
   function jumpTo(sectionId) {
