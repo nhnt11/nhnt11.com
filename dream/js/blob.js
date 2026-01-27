@@ -73,6 +73,13 @@ const Blob = (function() {
   const DESPAWN_DURATION = 800;
   let emergenceTimeout = null; // Track scheduled emergence for cancellation
 
+  // Glitch effect for reprise blob
+  let glitchOffsetX = 0;
+  let glitchOffsetY = 0;
+  let glitchRGBOffsets = [{ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }]; // R, G, B
+  let glitchTimer = 0;
+  let glitchIntensity = 0; // 0-1, controls amount of glitch
+
   // Fragment system for spawn/despawn animations
   const fragments = [];
   const FRAGMENT_COUNT = 18;
@@ -311,6 +318,51 @@ const Blob = (function() {
 
       state.x += dx * ratio;
       state.y += dy * ratio;
+    }
+  }
+
+  function updateGlitch(dt) {
+    // Only glitch during reprise blob building (interactive spawn with shouldExpandOnClick)
+    const shouldGlitch = (state.emerging || state.emerged) && interactiveSpawn && shouldExpandOnClick;
+
+    if (!shouldGlitch) {
+      glitchIntensity = 0;
+      return;
+    }
+
+    // Calculate glitch intensity based on blob growth
+    const targetRadius = state.baseRadius * radiusMultiplier;
+    if (state.emerged) {
+      glitchIntensity = 1; // Max glitch when fully built
+    } else {
+      const growthRatio = state.radius / targetRadius;
+      glitchIntensity = growthRatio * growthRatio; // Exponential ramp-up
+    }
+
+    // Glitch frequency increases with intensity
+    // At low intensity: glitch every 200-400ms
+    // At high intensity: glitch every 20-50ms (nearly continuous)
+    const minInterval = 0.02;
+    const maxInterval = 0.4;
+    const glitchInterval = maxInterval - (maxInterval - minInterval) * glitchIntensity;
+
+    glitchTimer += dt;
+    if (glitchTimer >= glitchInterval) {
+      glitchTimer = 0;
+
+      // Random position offset (increases with intensity)
+      const maxOffset = 15 * glitchIntensity;
+      glitchOffsetX = (Math.random() - 0.5) * 2 * maxOffset;
+      glitchOffsetY = (Math.random() - 0.5) * 2 * maxOffset;
+
+      // RGB separation offsets (increases with intensity)
+      const rgbOffset = 8 * glitchIntensity;
+      for (let i = 0; i < 3; i++) {
+        glitchRGBOffsets[i] = {
+          x: (Math.random() - 0.5) * 2 * rgbOffset,
+          y: (Math.random() - 0.5) * 2 * rgbOffset
+        };
+      }
     }
   }
 
@@ -938,28 +990,14 @@ const Blob = (function() {
     let wobbleX = 0;
     let wobbleY = 0;
 
-    if (state.emerged && shouldExpandOnClick) {
-      // Fully built reprise blob: keep vibrating at max intensity until clicked
-      const vibrateAmount = 12;
-      const vibrateSpeed = 40;
-      wobbleX = Math.sin(state.wobblePhase * vibrateSpeed) * vibrateAmount;
-      wobbleY = Math.cos(state.wobblePhase * vibrateSpeed * 1.3) * vibrateAmount;
+    // Use glitch effect for reprise blob building, normal wobble otherwise
+    if (glitchIntensity > 0) {
+      wobbleX = glitchOffsetX;
+      wobbleY = glitchOffsetY;
     } else if (state.emerged) {
       // Normal wobble when fully emerged
       wobbleX = Math.sin(state.wobblePhase) * movement.wobbleAmount;
       wobbleY = Math.cos(state.wobblePhase * 0.7) * movement.wobbleAmount;
-    } else if (state.emerging && interactiveSpawn) {
-      // During interactive spawn: vibrate more vigorously as blob grows
-      const targetRadius = state.baseRadius * radiusMultiplier;
-      const growthRatio = state.radius / targetRadius; // 0 to 1
-
-      // Vibration intensity increases with size (starts small, gets intense)
-      const vibrateAmount = growthRatio * growthRatio * 12; // Up to 12px at full size
-      // Vibration speed also increases
-      const vibrateSpeed = 15 + growthRatio * 25; // Gets faster as it grows
-
-      wobbleX = Math.sin(state.wobblePhase * vibrateSpeed) * vibrateAmount;
-      wobbleY = Math.cos(state.wobblePhase * vibrateSpeed * 1.3) * vibrateAmount;
     }
 
     const x = state.x + wobbleX;
@@ -971,23 +1009,59 @@ const Blob = (function() {
     ctx.save();
     ctx.globalAlpha = state.opacity;
 
-    // Outer glow (smoothly enhanced when cursor near)
-    const glowIntensity = 0.2 + proximityGlow;
-    const glowSize = 2 + state.hoverGlow * 0.5; // 2 -> 2.5
-    const gradient = ctx.createRadialGradient(x, y, state.radius * 0.5, x, y, state.radius * glowSize);
-    gradient.addColorStop(0, `rgba(255, 255, 255, ${glowIntensity})`);
-    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    if (glitchIntensity > 0) {
+      // RGB separation glitch effect
+      ctx.globalCompositeOperation = 'lighter';
 
-    ctx.beginPath();
-    ctx.arc(x, y, state.radius * glowSize, 0, Math.PI * 2);
-    ctx.fillStyle = gradient;
-    ctx.fill();
+      const rgbColors = [
+        { r: 255, g: 80, b: 80 },   // Red
+        { r: 80, g: 255, b: 80 },   // Green
+        { r: 80, g: 80, b: 255 }    // Blue
+      ];
 
-    // Main circle
-    ctx.beginPath();
-    ctx.arc(x, y, state.radius, 0, Math.PI * 2);
-    ctx.fillStyle = '#fff';
-    ctx.fill();
+      for (let i = 0; i < 3; i++) {
+        const color = rgbColors[i];
+        const offsetX = x + glitchRGBOffsets[i].x;
+        const offsetY = y + glitchRGBOffsets[i].y;
+
+        // Glow
+        const glowSize = 2;
+        const gradient = ctx.createRadialGradient(offsetX, offsetY, state.radius * 0.5, offsetX, offsetY, state.radius * glowSize);
+        gradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, 0.3)`);
+        gradient.addColorStop(1, `rgba(${color.r}, ${color.g}, ${color.b}, 0)`);
+        ctx.beginPath();
+        ctx.arc(offsetX, offsetY, state.radius * glowSize, 0, Math.PI * 2);
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // Core
+        ctx.beginPath();
+        ctx.arc(offsetX, offsetY, state.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+        ctx.fill();
+      }
+
+      ctx.globalCompositeOperation = 'source-over';
+    } else {
+      // Normal white blob rendering
+      // Outer glow (smoothly enhanced when cursor near)
+      const glowIntensity = 0.2 + proximityGlow;
+      const glowSize = 2 + state.hoverGlow * 0.5; // 2 -> 2.5
+      const gradient = ctx.createRadialGradient(x, y, state.radius * 0.5, x, y, state.radius * glowSize);
+      gradient.addColorStop(0, `rgba(255, 255, 255, ${glowIntensity})`);
+      gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+      ctx.beginPath();
+      ctx.arc(x, y, state.radius * glowSize, 0, Math.PI * 2);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      // Main circle
+      ctx.beginPath();
+      ctx.arc(x, y, state.radius, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+    }
 
     ctx.restore();
   }
@@ -1021,6 +1095,7 @@ const Blob = (function() {
     updateExpand(dt);
     updateMovement(dt);
     updatePersonality(dt);
+    updateGlitch(dt);
     updateTrailFragments(dt);
     updateCursorState();
     render();
