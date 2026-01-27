@@ -1,5 +1,4 @@
 // Touch-based panning and auto-pan for mobile devices
-// With optional gyroscope-based parallax when available
 
 const Pan = (function() {
   let body;
@@ -17,51 +16,6 @@ const Pan = (function() {
   let panStartY = 0;
   let hasPanned = false;
   let wasRevealedBeforePan = false;
-
-  // Gyroscope state
-  let gyroSupported = false;
-  let gyroPermissionGranted = false;
-  let gyroX = 0, gyroY = 0; // Normalized -1 to 1
-  let gyroTargetX = 50, gyroTargetY = 50; // Target position based on tilt
-  let gyroPermissionRequested = false;
-
-  // Gyroscope permission request (iOS 13+ requires user gesture)
-  async function requestGyroPermission() {
-    if (gyroPermissionRequested) return gyroPermissionGranted;
-    gyroPermissionRequested = true;
-
-    if (typeof DeviceOrientationEvent !== 'undefined' &&
-        typeof DeviceOrientationEvent.requestPermission === 'function') {
-      try {
-        const permission = await DeviceOrientationEvent.requestPermission();
-        gyroPermissionGranted = permission === 'granted';
-      } catch (e) {
-        gyroPermissionGranted = false;
-      }
-    } else {
-      // Android and older iOS don't need permission
-      gyroPermissionGranted = true;
-    }
-
-    if (gyroPermissionGranted) {
-      window.addEventListener('deviceorientation', onDeviceOrientation);
-      gyroSupported = true;
-    }
-
-    return gyroPermissionGranted;
-  }
-
-  function onDeviceOrientation(e) {
-    // beta: front-back tilt (-180 to 180), gamma: left-right (-90 to 90)
-    // Normalize to -1 to 1 range, with 45° as neutral holding angle
-    gyroX = Math.max(-1, Math.min(1, e.gamma / 30)); // ±30° range
-    gyroY = Math.max(-1, Math.min(1, (e.beta - 45) / 30)); // 45° neutral, ±30° range
-
-    // Map gyro tilt to 0-100% position
-    // Inverted so tilting right moves view right (shows left side of image)
-    gyroTargetX = 50 + gyroX * 50;
-    gyroTargetY = 50 + gyroY * 50;
-  }
 
   function initParams(isFirst) {
     const data = Gallery.getImageData(Gallery.getCurrentIndex());
@@ -86,24 +40,6 @@ const Pan = (function() {
 
   function animate(timestamp) {
     if (!startTime) startTime = timestamp;
-
-    // Use gyro-based positioning when available
-    if (gyroSupported && !isTouching) {
-      // Smooth interpolation toward gyro target (ease factor ~0.08 for smooth movement)
-      const ease = 0.08;
-      currentX += (gyroTargetX - currentX) * ease;
-      currentY += (gyroTargetY - currentY) * ease;
-
-      // Clamp to valid range
-      currentX = Math.max(0, Math.min(100, currentX));
-      currentY = Math.max(0, Math.min(100, currentY));
-
-      updatePosition();
-      animationId = requestAnimationFrame(animate);
-      return;
-    }
-
-    // Fall back to auto-pan when gyro not available
     if (!params) {
       params = initParams(true);
       if (!params) {
@@ -133,11 +69,6 @@ const Pan = (function() {
   function handleTouchStart(e) {
     if (e.touches.length !== 1) return;
     if (e.target.closest('a, button')) return;
-
-    // Request gyro permission on first touch (iOS requires user gesture)
-    if (!gyroPermissionRequested) {
-      requestGyroPermission();
-    }
 
     isTouching = true;
     hasPanned = false;
