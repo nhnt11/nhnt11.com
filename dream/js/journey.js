@@ -118,6 +118,9 @@ const Journey = (function() {
   // Mobile touch tracking for reprise
   let lastRepriseTouchX = 0, lastRepriseTouchY = 0;
 
+  // Skip interactions shortly after entering reprise (the click/tap that triggered the transition)
+  let repriseEnteredAt = 0;
+
   // Gyroscope movement accumulation
   let gyroTrailAccumulator = 0;
   let gyroUpdateInterval = null;
@@ -127,11 +130,13 @@ const Journey = (function() {
     repriseReadySpawnInterval = setInterval(() => {
       if (repriseMouseX !== 0 && repriseMouseY !== 0 && typeof Blob !== 'undefined') {
         // Spawn multiple fragments per interval for vigorous effect
+        // On mobile, offset upward so fragments are visible above finger
+        const baseY = isMobile ? repriseMouseY - 60 : repriseMouseY;
         for (let i = 0; i < READY_SPAWN_COUNT; i++) {
           const angle = Math.random() * Math.PI * 2;
           const offset = Math.random() * 30;
           const spawnX = repriseMouseX + Math.cos(angle) * offset;
-          const spawnY = repriseMouseY + Math.sin(angle) * offset;
+          const spawnY = baseY + Math.sin(angle) * offset;
           Blob.spawnTrailFragment(spawnX, spawnY, false); // White when ready
         }
       }
@@ -156,6 +161,9 @@ const Journey = (function() {
   function onRepriseMouseMove(e) {
     const currentSection = getCurrentSection();
     if (currentSection.id !== 'reprise') return;
+
+    // Skip interactions within 100ms of entering reprise
+    if (performance.now() - repriseEnteredAt < 100) return;
 
     // Only accumulate if we have previous position (skip first move)
     const hasPrevious = repriseMouseX !== 0 || repriseMouseY !== 0;
@@ -197,6 +205,7 @@ const Journey = (function() {
 
           // Burst of white fragments exploding outward to signal ready state
           if (typeof Blob !== 'undefined') {
+            Blob.setClickReadyGlitch(true);
             const burstCount = 15 + Math.floor(Math.random() * 6); // 15-20 fragments
             const center = { x: e.clientX, y: e.clientY };
             for (let i = 0; i < burstCount; i++) {
@@ -230,6 +239,9 @@ const Journey = (function() {
     const currentSection = getCurrentSection();
     if (currentSection.id !== 'reprise') return;
 
+    // Skip interactions within 100ms of entering reprise
+    if (performance.now() - repriseEnteredAt < 100) return;
+
     const touch = e.touches[0];
 
     // Only accumulate if we have previous position (skip first move)
@@ -251,11 +263,11 @@ const Journey = (function() {
 
         while (repriseTrailAccumulator >= spawnDistance) {
           repriseTrailAccumulator -= spawnDistance;
-          // Random offset from touch position
+          // Random offset from touch position, biased upward so fragments are visible above finger
           const angle = Math.random() * Math.PI * 2;
           const offset = Math.random() * 30;
           const spawnX = touch.clientX + Math.cos(angle) * offset;
-          const spawnY = touch.clientY + Math.sin(angle) * offset;
+          const spawnY = touch.clientY - 60 + Math.sin(angle) * offset; // 60px above touch
           Blob.spawnTrailFragment(spawnX, spawnY, true); // RGB during charging
         }
       }
@@ -269,21 +281,23 @@ const Journey = (function() {
         if (repriseMovement >= threshold) {
           repriseClickReady = true;
 
-          // Burst of white fragments exploding outward to signal ready state
+          // Burst of white fragments exploding outward to signal ready state (above finger)
           if (typeof Blob !== 'undefined') {
+            Blob.setClickReadyGlitch(true);
             const burstCount = 15 + Math.floor(Math.random() * 6);
-            const center = { x: touch.clientX, y: touch.clientY };
+            const burstY = touch.clientY - 60; // 60px above touch
+            const center = { x: touch.clientX, y: burstY };
             for (let i = 0; i < burstCount; i++) {
               const angle = (i / burstCount) * Math.PI * 2 + Math.random() * 0.3;
               const offset = 10 + Math.random() * 20;
               const spawnX = touch.clientX + Math.cos(angle) * offset;
-              const spawnY = touch.clientY + Math.sin(angle) * offset;
+              const spawnY = burstY + Math.sin(angle) * offset;
               Blob.spawnTrailFragment(spawnX, spawnY, false, center);
             }
 
-            // Spawn blob at touch position
+            // Spawn blob above touch position (visible above finger)
             Blob.setShouldDespawn(true);
-            Blob.spawnAt(touch.clientX, touch.clientY);
+            Blob.spawnAt(touch.clientX, burstY);
           }
         }
       }
@@ -313,21 +327,60 @@ const Journey = (function() {
     const currentSection = getCurrentSection();
     if (currentSection.id !== 'reprise' || repriseTransitioning) return;
 
+    // Skip interactions within 100ms of entering reprise (the tap that triggered the transition)
+    if (performance.now() - repriseEnteredAt < 100) return;
+
     // Get tap position from changedTouches
     const touch = e.changedTouches[0];
     if (!touch) return;
 
-    // Stage 4: blob building - taps add to interactive spawn movement
-    if (repriseStage >= 4) {
-      const fragmentCount = 3 + Math.floor(Math.random() * 3); // 3, 4, or 5
-      const BLOB_MOVEMENT_PER_FRAGMENT = 35;
-      const movementValue = fragmentCount * BLOB_MOVEMENT_PER_FRAGMENT;
+    const fragmentCount = 3 + Math.floor(Math.random() * 3); // 3, 4, or 5
+    const spawnY = touch.clientY - 60; // 60px above touch
 
-      if (typeof Blob !== 'undefined') {
-        Blob.addInteractiveMovement(movementValue);
+    // Stages 0-3: taps accumulate movement toward threshold (like dragging)
+    if (repriseStage < 4 && !repriseClickReady && typeof Blob !== 'undefined') {
+      const movementPerTap = 80; // Each tap adds this much "movement"
+      repriseMovement += movementPerTap;
+
+      // Spawn RGB trail fragments as visual feedback (above finger)
+      for (let i = 0; i < fragmentCount; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const offset = Math.random() * 40;
+        const spawnX = touch.clientX + Math.cos(angle) * offset;
+        const fragY = spawnY + Math.sin(angle) * offset;
+        Blob.spawnTrailFragment(spawnX, fragY, true); // RGB during charging
+      }
+
+      // Check if threshold reached - spawn blob for them to tap
+      const threshold = REPRISE_THRESHOLDS[repriseStage];
+      if (repriseMovement >= threshold) {
+        repriseClickReady = true;
+        if (typeof Blob !== 'undefined') Blob.setClickReadyGlitch(true);
+
+        // Burst of white fragments above finger
+        const burstCount = 15 + Math.floor(Math.random() * 6);
+        const center = { x: touch.clientX, y: spawnY };
+        for (let i = 0; i < burstCount; i++) {
+          const angle = (i / burstCount) * Math.PI * 2 + Math.random() * 0.3;
+          const offset = 10 + Math.random() * 20;
+          const bx = touch.clientX + Math.cos(angle) * offset;
+          const by = spawnY + Math.sin(angle) * offset;
+          Blob.spawnTrailFragment(bx, by, false, center);
+        }
+
+        // Spawn blob above tap position
+        Blob.setShouldDespawn(true);
+        Blob.spawnAt(touch.clientX, spawnY);
       }
     }
-    // Stages 0-3 with clickReady: tapping the blob handles advancement
+
+    // Stage 4: blob building - taps add to interactive spawn movement (no trail fragments - just the blob building)
+    if (repriseStage >= 4 && typeof Blob !== 'undefined') {
+      const BLOB_MOVEMENT_PER_FRAGMENT = 35;
+      const movementValue = fragmentCount * BLOB_MOVEMENT_PER_FRAGMENT;
+      Blob.addInteractiveMovement(movementValue);
+    }
+    // Stages 0-3 with clickReady: tapping the blob handles advancement (via Blob's onTouchTap)
   }
 
   // Gyroscope movement accumulation (mobile only)
@@ -368,23 +421,31 @@ const Journey = (function() {
       // Check if threshold reached
       if (repriseMovement >= threshold) {
         repriseClickReady = true;
+        if (typeof Blob !== 'undefined') Blob.setClickReadyGlitch(true);
 
-        // Burst at screen center for gyro
-        const centerX = window.innerWidth / 2;
-        const centerY = window.innerHeight / 2;
+        // Spawn below the reprise text container (or screen center as fallback)
+        let spawnCenterX = window.innerWidth / 2;
+        let spawnCenterY = window.innerHeight / 2;
+        const repriseText = document.querySelector('.reprise-text');
+        if (repriseText) {
+          const rect = repriseText.getBoundingClientRect();
+          spawnCenterY = rect.bottom + 60; // 60px below the text
+        }
+
+        // Burst of white fragments
         const burstCount = 15 + Math.floor(Math.random() * 6);
-        const center = { x: centerX, y: centerY };
+        const center = { x: spawnCenterX, y: spawnCenterY };
         for (let i = 0; i < burstCount; i++) {
           const angle = (i / burstCount) * Math.PI * 2 + Math.random() * 0.3;
           const offset = 10 + Math.random() * 20;
-          const spawnX = centerX + Math.cos(angle) * offset;
-          const spawnY = centerY + Math.sin(angle) * offset;
+          const spawnX = spawnCenterX + Math.cos(angle) * offset;
+          const spawnY = spawnCenterY + Math.sin(angle) * offset;
           Blob.spawnTrailFragment(spawnX, spawnY, false, center);
         }
 
-        // Spawn blob at screen center
+        // Spawn blob below the text
         Blob.setShouldDespawn(true);
-        Blob.spawnAt(centerX, centerY);
+        Blob.spawnAt(spawnCenterX, spawnCenterY);
       }
     }
 
@@ -436,25 +497,27 @@ const Journey = (function() {
       }
     } else if (repriseStage === 1) {
       // Transition to "something worth living for"
+      const livingForText = isMobile ? 'something worth\nliving for' : 'something worth living for';
       if (typeof Glitch !== 'undefined') {
         Glitch.triggerQuick(() => {
           hideRepriseText();
         });
         setTimeout(() => {
           Glitch.triggerHeavy(() => {
-            setRepriseText('something worth living for', true);
+            setRepriseText(livingForText, true);
             container.classList.add('visible');
             repriseStage = 2;
             repriseTransitioning = false;
           });
         }, 250 + TEXT_TRANSITION_GAP);
       } else {
-        setRepriseText('something worth living for', true);
+        setRepriseText(livingForText, true);
         repriseStage = 2;
         repriseTransitioning = false;
       }
     } else if (repriseStage === 2) {
       // Transition to "something worth dying for" then immediately start blob building
+      const dyingForText = isMobile ? 'something worth\ndying for' : 'something worth dying for';
       if (typeof Glitch !== 'undefined') {
         const currentWidth = container.offsetWidth;
         container.style.minWidth = currentWidth + 'px';
@@ -465,7 +528,7 @@ const Journey = (function() {
         });
         setTimeout(() => {
           Glitch.triggerHeavy(() => {
-            setRepriseText('something worth dying for', true);
+            setRepriseText(dyingForText, true);
             container.style.minWidth = '';
             container.style.textAlign = '';
             repriseStage = 3;
@@ -476,7 +539,7 @@ const Journey = (function() {
           });
         }, 250 + TEXT_TRANSITION_GAP);
       } else {
-        setRepriseText('something worth dying for', true);
+        setRepriseText(dyingForText, true);
         repriseStage = 3;
         repriseTransitioning = false;
         startBlobBuilding();
@@ -501,6 +564,7 @@ const Journey = (function() {
     repriseStage = 0;
     repriseTransitioning = false;
     repriseClickReady = false;
+    if (typeof Blob !== 'undefined') Blob.setClickReadyGlitch(false);
     repriseMouseX = 0;
     repriseMouseY = 0;
     document.body.style.cursor = '';
@@ -510,6 +574,9 @@ const Journey = (function() {
     lastRepriseTouchX = 0;
     lastRepriseTouchY = 0;
     gyroTrailAccumulator = 0;
+
+    // Record when we entered reprise to skip the triggering interaction
+    repriseEnteredAt = performance.now();
   }
 
   function advance() {
@@ -761,17 +828,20 @@ const Journey = (function() {
         if (!container) return;
         // Set size attribute for CSS
         container.setAttribute('data-text-size', isLong ? 'long' : 'short');
+        // Convert \n to <br> for HTML rendering
+        const htmlText = text.replace(/\n/g, '<br>');
+        const plainText = text.replace(/\n/g, ' ');
         // Update glow layer
         const glow = container.querySelector('.dream-glow');
-        if (glow) glow.textContent = text;
+        if (glow) glow.innerHTML = htmlText;
         // Update parallax layers
         container.querySelectorAll('.dream-parallax').forEach(el => {
-          el.textContent = text;
+          el.innerHTML = htmlText;
         });
         // Update slices (both content and data-text attribute for ::before)
         container.querySelectorAll('.dream-slice').forEach(el => {
-          el.textContent = text;
-          el.setAttribute('data-text', text);
+          el.innerHTML = htmlText;
+          el.setAttribute('data-text', plainText);
         });
       }
 
@@ -826,6 +896,7 @@ const Journey = (function() {
         if (currentSection.id === 'reprise' && repriseClickReady && repriseStage < 3) {
           // In reprise, clicking blob advances the reprise stage
           repriseClickReady = false;
+          Blob.setClickReadyGlitch(false);
           repriseMovement = 0;
           repriseTrailAccumulator = 0;
           advanceRepriseStage();
@@ -850,8 +921,10 @@ const Journey = (function() {
       }, 6000);
     }
 
-    // Mouse movement handler for reprise section
-    document.addEventListener('mousemove', onRepriseMouseMove);
+    // Mouse movement handler for reprise section (desktop only - mobile uses touch handlers)
+    if (!isMobile) {
+      document.addEventListener('mousemove', onRepriseMouseMove);
+    }
 
     // Click handler for reprise section
     document.addEventListener('click', onRepriseClick);
@@ -860,6 +933,7 @@ const Journey = (function() {
     if (isMobile) {
       document.addEventListener('touchmove', onRepriseTouchMove, { passive: true });
       document.addEventListener('touchend', onRepriseTouchEnd);
+      document.addEventListener('touchend', onRepriseTap);
 
       // Start gyro movement update loop (will only accumulate when in reprise section)
       startGyroUpdateLoop();

@@ -4,6 +4,9 @@ const Visuals = (function() {
   const canvas = document.getElementById('psychedelic-canvas');
   const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
 
+  // Mobile detection
+  const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
   function compileShader(source, type) {
     const shader = gl.createShader(type);
     gl.shaderSource(shader, source);
@@ -606,7 +609,10 @@ const Visuals = (function() {
   function init() {
     resize();
     window.addEventListener('resize', resize);
-    window.addEventListener('mousemove', onMouseMove);
+    // Only track mouse on desktop - mobile fires fake mousemove after touch
+    if (!isMobile) {
+      window.addEventListener('mousemove', onMouseMove);
+    }
     render();
     requestAnimationFrame(() => {
       document.body.classList.remove('page-loading');

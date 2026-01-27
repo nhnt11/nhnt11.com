@@ -58,6 +58,9 @@ const Blob = (function() {
   let mouseInitialized = false;
   let cursorNearBlob = false;
 
+  // Mobile home position - below active section title (used as spawn point and gyro wander center)
+  let mobileHomeX = 0, mobileHomeY = 0;
+
   // Convergence point for spawn animation - follows mouse with same movement as blob
   let convergenceX = 0, convergenceY = 0;
 
@@ -88,9 +91,13 @@ const Blob = (function() {
   // Glitch effect for reprise blob
   let glitchOffsetX = 0;
   let glitchOffsetY = 0;
+  let glitchTargetX = 0;
+  let glitchTargetY = 0;
   let glitchRGBOffsets = [{ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }]; // R, G, B
+  let glitchRGBTargets = [{ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }]; // R, G, B targets
   let glitchTimer = 0;
   let glitchIntensity = 0; // 0-1, controls amount of glitch
+  const GLITCH_LERP_SPEED = 12; // How fast offsets move toward targets
 
   // Fragment system for spawn/despawn animations
   const fragments = [];
@@ -334,6 +341,9 @@ const Blob = (function() {
   }
 
   function triggerBlobAction() {
+    // Reset idle timer on any click
+    idleTimer = 0;
+
     // Expand, despawn, or burst based on context
     if (shouldExpandOnClick) {
       // For expand, don't notify handlers yet - they'll be notified when expand completes
@@ -403,22 +413,44 @@ const Blob = (function() {
     }
   }
 
-  function updateGlitch(dt) {
-    // Only glitch during reprise blob building (interactive spawn with shouldExpandOnClick)
-    const shouldGlitch = (state.emerging || state.emerged) && interactiveSpawn && shouldExpandOnClick;
+  // Click-ready glitch state (lighter glitch when blob is waiting to be clicked)
+  let clickReadyGlitch = false;
+  const CLICK_READY_GLITCH_INTENSITY = 0.25;
 
-    if (!shouldGlitch) {
+  function setClickReadyGlitch(enabled) {
+    clickReadyGlitch = enabled;
+  }
+
+  function updateGlitch(dt) {
+    // Glitch during reprise blob building OR when click-ready
+    const shouldBuildGlitch = (state.emerging || state.emerged) && interactiveSpawn && shouldExpandOnClick;
+    const shouldClickReadyGlitch = clickReadyGlitch && state.emerged && state.visible;
+
+    if (!shouldBuildGlitch && !shouldClickReadyGlitch) {
       glitchIntensity = 0;
+      // Smoothly return to zero
+      const lerp = 1 - Math.exp(-GLITCH_LERP_SPEED * dt);
+      glitchOffsetX *= (1 - lerp);
+      glitchOffsetY *= (1 - lerp);
+      for (let i = 0; i < 3; i++) {
+        glitchRGBOffsets[i].x *= (1 - lerp);
+        glitchRGBOffsets[i].y *= (1 - lerp);
+      }
       return;
     }
 
-    // Calculate glitch intensity based on blob growth
-    const targetRadius = state.baseRadius * radiusMultiplier;
-    if (state.emerged) {
-      glitchIntensity = 1; // Max glitch when fully built
+    // Use fixed low intensity for click-ready, dynamic for building
+    if (shouldClickReadyGlitch && !shouldBuildGlitch) {
+      glitchIntensity = CLICK_READY_GLITCH_INTENSITY;
     } else {
-      const growthRatio = state.radius / targetRadius;
-      glitchIntensity = growthRatio * growthRatio; // Exponential ramp-up
+      // Calculate glitch intensity based on blob growth
+      const targetRadius = state.baseRadius * radiusMultiplier;
+      if (state.emerged) {
+        glitchIntensity = 1; // Max glitch when fully built
+      } else {
+        const growthRatio = state.radius / targetRadius;
+        glitchIntensity = growthRatio * growthRatio; // Exponential ramp-up
+      }
     }
 
     // Glitch frequency increases with intensity
@@ -432,19 +464,28 @@ const Blob = (function() {
     if (glitchTimer >= glitchInterval) {
       glitchTimer = 0;
 
-      // Random position offset (increases with intensity)
+      // Set new random targets (increases with intensity)
       const maxOffset = 15 * glitchIntensity;
-      glitchOffsetX = (Math.random() - 0.5) * 2 * maxOffset;
-      glitchOffsetY = (Math.random() - 0.5) * 2 * maxOffset;
+      glitchTargetX = (Math.random() - 0.5) * 2 * maxOffset;
+      glitchTargetY = (Math.random() - 0.5) * 2 * maxOffset;
 
-      // RGB separation offsets (increases with intensity)
+      // RGB separation targets (increases with intensity)
       const rgbOffset = 8 * glitchIntensity;
       for (let i = 0; i < 3; i++) {
-        glitchRGBOffsets[i] = {
+        glitchRGBTargets[i] = {
           x: (Math.random() - 0.5) * 2 * rgbOffset,
           y: (Math.random() - 0.5) * 2 * rgbOffset
         };
       }
+    }
+
+    // Smoothly interpolate current values toward targets
+    const lerp = 1 - Math.exp(-GLITCH_LERP_SPEED * dt);
+    glitchOffsetX += (glitchTargetX - glitchOffsetX) * lerp;
+    glitchOffsetY += (glitchTargetY - glitchOffsetY) * lerp;
+    for (let i = 0; i < 3; i++) {
+      glitchRGBOffsets[i].x += (glitchRGBTargets[i].x - glitchRGBOffsets[i].x) * lerp;
+      glitchRGBOffsets[i].y += (glitchRGBTargets[i].y - glitchRGBOffsets[i].y) * lerp;
     }
   }
 
@@ -482,9 +523,9 @@ const Blob = (function() {
         state.targetX = touchX;
         state.targetY = touchY;
       } else if (gyroSupported) {
-        // Wander based on device tilt when no touch
-        const wanderX = width / 2 + gyroX * (width * 0.3);
-        const wanderY = height / 2 + gyroY * (height * 0.3);
+        // Wander based on device tilt, centered on mobile home position (below title)
+        const wanderX = mobileHomeX + gyroX * (width * 0.3);
+        const wanderY = mobileHomeY + gyroY * (height * 0.3);
         state.targetX = wanderX;
         state.targetY = wanderY;
       }
@@ -531,9 +572,9 @@ const Blob = (function() {
 
   function createSpawnFragments() {
     fragments.length = 0;
-    // Initialize convergence point at mouse position (or screen center if mouse not initialized)
-    convergenceX = mouseInitialized ? mouseX : width / 2;
-    convergenceY = mouseInitialized ? mouseY : height / 2;
+    // Initialize convergence point from state (already set by startEmergence)
+    convergenceX = state.x;
+    convergenceY = state.y;
 
     targetFragmentCount = Math.floor(FRAGMENT_COUNT * fragmentMultiplier);
     spawnedFragmentCount = 0;
@@ -805,6 +846,21 @@ const Blob = (function() {
   let burstTime = 0;
   let burstConvergenceX = 0, burstConvergenceY = 0;
 
+  // Attention pulse - mini burst to draw attention when idle
+  const PULSE_IDLE_TIME = 4; // seconds before pulse triggers
+  const PULSE_EXPLODE_DURATION = 0.15; // faster than regular burst
+  const PULSE_REFORM_DURATION = 0.6; // faster reform
+  const PULSE_DISTANCE = 50; // pixels, not screen fraction
+  const PULSE_FRAGMENT_COUNT = 8;
+  let idleTimer = 0;
+  let pulsing = false;
+  let pulsePhase = 'none'; // 'explode', 'reform', 'none'
+  let pulseTime = 0;
+  let pulseStartX = 0, pulseStartY = 0;
+  let pulseFragments = [];
+  let pulseRadiusScale = 1; // Applied to blob radius during pulse (allows shrink without affecting build progress)
+  const PULSE_SHRINK_RATIO = 0.5; // Blob shrinks to this fraction during pulse
+
   function createBurstFragments() {
     fragments.length = 0;
     burstStartX = state.x;
@@ -968,6 +1024,145 @@ const Blob = (function() {
     }
   }
 
+  // Attention pulse - mini burst when idle to draw attention
+  function startPulse() {
+    // Allow pulse when emerged OR when building (emerging with interactiveSpawn)
+    const canPulse = state.emerged || (state.emerging && interactiveSpawn);
+    if (pulsing || state.bursting || state.despawning || !state.visible || !canPulse) return;
+
+    pulsing = true;
+    pulsePhase = 'explode';
+    pulseTime = 0;
+    pulseStartX = state.x;
+    pulseStartY = state.y;
+    pulseRadiusScale = 1;
+
+    // Create pulse fragments
+    pulseFragments.length = 0;
+    for (let i = 0; i < PULSE_FRAGMENT_COUNT; i++) {
+      const angle = (i / PULSE_FRAGMENT_COUNT) * Math.PI * 2;
+      const color = RGB_COLORS[i % 3];
+      const distance = PULSE_DISTANCE * (0.7 + Math.random() * 0.6);
+
+      pulseFragments.push({
+        x: pulseStartX,
+        y: pulseStartY,
+        explodeX: pulseStartX + Math.cos(angle) * distance,
+        explodeY: pulseStartY + Math.sin(angle) * distance,
+        radius: 4 + Math.random() * 3,
+        opacity: 1,
+        color: color
+      });
+    }
+  }
+
+  function updatePulse(dt) {
+    if (!pulsing) return;
+
+    pulseTime += dt;
+
+    if (pulsePhase === 'explode') {
+      const progress = Math.min(1, pulseTime / PULSE_EXPLODE_DURATION);
+      const eased = 1 - Math.pow(1 - progress, 2); // Ease out
+
+      pulseFragments.forEach(frag => {
+        frag.x = pulseStartX + (frag.explodeX - pulseStartX) * eased;
+        frag.y = pulseStartY + (frag.explodeY - pulseStartY) * eased;
+      });
+
+      // Shrink blob as fragments leave (using scale so it works during building too)
+      pulseRadiusScale = 1 - (1 - PULSE_SHRINK_RATIO) * eased;
+
+      if (progress >= 1) {
+        pulsePhase = 'reform';
+        pulseTime = 0;
+        // Store exploded positions as start for reform
+        pulseFragments.forEach(frag => {
+          frag.startX = frag.x;
+          frag.startY = frag.y;
+        });
+      }
+    } else if (pulsePhase === 'reform') {
+      const progress = Math.min(1, pulseTime / PULSE_REFORM_DURATION);
+      // Ease in-out for smooth return
+      const eased = progress < 0.5
+        ? 2 * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+
+      // Reform back to current blob position (which may have moved)
+      pulseFragments.forEach(frag => {
+        frag.x = frag.startX + (state.x - frag.startX) * eased;
+        frag.y = frag.startY + (state.y - frag.startY) * eased;
+        frag.opacity = 1 - eased * 0.5; // Fade slightly as they return
+      });
+
+      // Grow blob back as fragments return
+      pulseRadiusScale = PULSE_SHRINK_RATIO + (1 - PULSE_SHRINK_RATIO) * eased;
+
+      if (progress >= 1) {
+        pulsing = false;
+        pulsePhase = 'none';
+        pulseFragments.length = 0;
+        pulseRadiusScale = 1; // Ensure we're back to full size
+        idleTimer = 0; // Reset idle timer after pulse
+      }
+    }
+  }
+
+  function updateIdleTimer(dt) {
+    // Can pulse when emerged, OR when building (emerging with interactiveSpawn)
+    const canPulse = state.emerged || (state.emerging && interactiveSpawn);
+
+    // Only when blob is visible and not in other animations
+    if (!canPulse || !state.visible || state.bursting || state.despawning || pulsing) {
+      idleTimer = 0;
+      return;
+    }
+
+    idleTimer += dt;
+
+    if (idleTimer >= PULSE_IDLE_TIME) {
+      startPulse();
+    }
+  }
+
+  function renderPulseFragments() {
+    if (pulseFragments.length === 0) return;
+
+    ctx.globalCompositeOperation = 'lighter';
+
+    pulseFragments.forEach(frag => {
+      if (frag.opacity <= 0) return;
+
+      ctx.save();
+      ctx.globalAlpha = frag.opacity;
+
+      const color = frag.color;
+      const colorAlpha = (a) => `rgba(${color.r}, ${color.g}, ${color.b}, ${a})`;
+
+      // Glow
+      const glowRadius = frag.radius * 3;
+      const gradient = ctx.createRadialGradient(frag.x, frag.y, 0, frag.x, frag.y, glowRadius);
+      gradient.addColorStop(0, colorAlpha(0.6));
+      gradient.addColorStop(0.4, colorAlpha(0.2));
+      gradient.addColorStop(1, colorAlpha(0));
+      ctx.beginPath();
+      ctx.arc(frag.x, frag.y, glowRadius, 0, Math.PI * 2);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      // Core
+      ctx.beginPath();
+      ctx.arc(frag.x, frag.y, frag.radius, 0, Math.PI * 2);
+      ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+      ctx.fill();
+
+      ctx.restore();
+    });
+
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
   // Expand animation - blob grows to fill screen
   const EXPAND_DURATION = 3.0; // seconds to fill screen
   const EXPAND_LINGER = 1.0; // seconds to stay white
@@ -1086,6 +1281,9 @@ const Blob = (function() {
   function renderMainBlob() {
     if (state.opacity <= 0 || state.radius <= 0) return;
 
+    // Apply pulse scale to radius
+    const radius = state.radius * pulseRadiusScale;
+
     let wobbleX = 0;
     let wobbleY = 0;
 
@@ -1125,17 +1323,17 @@ const Blob = (function() {
 
         // Glow
         const glowSize = 2;
-        const gradient = ctx.createRadialGradient(offsetX, offsetY, state.radius * 0.5, offsetX, offsetY, state.radius * glowSize);
+        const gradient = ctx.createRadialGradient(offsetX, offsetY, radius * 0.5, offsetX, offsetY, radius * glowSize);
         gradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, 0.3)`);
         gradient.addColorStop(1, `rgba(${color.r}, ${color.g}, ${color.b}, 0)`);
         ctx.beginPath();
-        ctx.arc(offsetX, offsetY, state.radius * glowSize, 0, Math.PI * 2);
+        ctx.arc(offsetX, offsetY, radius * glowSize, 0, Math.PI * 2);
         ctx.fillStyle = gradient;
         ctx.fill();
 
         // Core
         ctx.beginPath();
-        ctx.arc(offsetX, offsetY, state.radius, 0, Math.PI * 2);
+        ctx.arc(offsetX, offsetY, radius, 0, Math.PI * 2);
         ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
         ctx.fill();
       }
@@ -1146,18 +1344,18 @@ const Blob = (function() {
       // Outer glow (smoothly enhanced when cursor near)
       const glowIntensity = 0.2 + proximityGlow;
       const glowSize = 2 + state.hoverGlow * 0.5; // 2 -> 2.5
-      const gradient = ctx.createRadialGradient(x, y, state.radius * 0.5, x, y, state.radius * glowSize);
+      const gradient = ctx.createRadialGradient(x, y, radius * 0.5, x, y, radius * glowSize);
       gradient.addColorStop(0, `rgba(255, 255, 255, ${glowIntensity})`);
       gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
 
       ctx.beginPath();
-      ctx.arc(x, y, state.radius * glowSize, 0, Math.PI * 2);
+      ctx.arc(x, y, radius * glowSize, 0, Math.PI * 2);
       ctx.fillStyle = gradient;
       ctx.fill();
 
       // Main circle
       ctx.beginPath();
-      ctx.arc(x, y, state.radius, 0, Math.PI * 2);
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
       ctx.fillStyle = '#fff';
       ctx.fill();
     }
@@ -1178,6 +1376,9 @@ const Blob = (function() {
       renderFragments();
     }
 
+    // Pulse fragments (attention animation)
+    renderPulseFragments();
+
     // Draw main blob on top (covers arriving fragments)
     renderMainBlob();
   }
@@ -1191,6 +1392,8 @@ const Blob = (function() {
     updateEmergence(dt);
     updateDespawn(dt);
     updateBurst(dt);
+    updatePulse(dt);
+    updateIdleTimer(dt);
     updateExpand(dt);
     updateMovement(dt);
     updatePersonality(dt);
@@ -1202,6 +1405,18 @@ const Blob = (function() {
     requestAnimationFrame(animate);
   }
 
+  // Calculate mobile home position (below active section title)
+  function updateMobileHome() {
+    mobileHomeX = width / 2;
+    mobileHomeY = height / 2;
+    const activeText = document.querySelector('.journey-section.active .dream-text-container') ||
+                       document.querySelector('.reprise-section.active .reprise-text');
+    if (activeText) {
+      const rect = activeText.getBoundingClientRect();
+      mobileHomeY = rect.bottom + 60; // 60px below the text
+    }
+  }
+
   function startEmergence() {
     state.visible = true;
     state.emerging = true;
@@ -1209,11 +1424,24 @@ const Blob = (function() {
     state.emergenceProgress = 0;
     state.opacity = 0;
 
-    // Start position: center of screen
-    state.x = width / 2;
-    state.y = height / 2;
-    state.targetX = width / 2;
-    state.targetY = height / 2;
+    // Start position: mouse position on desktop, below title on mobile
+    if (mouseInitialized) {
+      state.x = mouseX;
+      state.y = mouseY;
+      state.targetX = mouseX;
+      state.targetY = mouseY;
+    } else if (isMobile) {
+      updateMobileHome();
+      state.x = mobileHomeX;
+      state.y = mobileHomeY;
+      state.targetX = mobileHomeX;
+      state.targetY = mobileHomeY;
+    } else {
+      state.x = width / 2;
+      state.y = height / 2;
+      state.targetX = width / 2;
+      state.targetY = height / 2;
+    }
 
     // Create spawn fragments
     createSpawnFragments();
@@ -1417,6 +1645,7 @@ const Blob = (function() {
     getTouchPosition,
     getGyroTilt,
     requestGyroPermission,
-    isMobileDevice
+    isMobileDevice,
+    setClickReadyGlitch
   };
 })();

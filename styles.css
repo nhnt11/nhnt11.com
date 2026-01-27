@@ -833,3 +833,14 @@ body.index-body {
   opacity: 1;
 }
 
+/* Mobile: center-align reprise and conclusion text */
+@media (hover: none) and (pointer: coarse) {
+  .reprise-text {
+    text-align: center;
+  }
+  .conclusion-section .journey-word {
+    text-align: center;
+  }
+}
+
+
