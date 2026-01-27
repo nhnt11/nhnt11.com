@@ -1,9 +1,21 @@
 // The Blob - a curious guide through the dream journey
 
 const Blob = (function() {
+  // Mobile detection - set once at load, never changes
+  const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
   // Canvas setup
   let canvas, ctx;
   let width, height;
+
+  // Touch tracking (mobile only)
+  let touchX = 0, touchY = 0;
+  let touchActive = false;
+
+  // Gyroscope tracking (mobile only)
+  let gyroX = 0, gyroY = 0; // Normalized -1 to 1
+  let gyroSupported = false;
+  let gyroPermissionGranted = false;
 
   // Blob state
   const state = {
@@ -236,6 +248,56 @@ const Blob = (function() {
     mouseInitialized = true;
   }
 
+  // Touch event handlers (mobile only)
+  function onTouchStart(e) {
+    touchActive = true;
+    const touch = e.touches[0];
+    touchX = touch.clientX;
+    touchY = touch.clientY;
+  }
+
+  function onTouchMove(e) {
+    const touch = e.touches[0];
+    touchX = touch.clientX;
+    touchY = touch.clientY;
+  }
+
+  function onTouchEnd(e) {
+    touchActive = false;
+  }
+
+  // Gyroscope permission request (iOS 13+ requires user gesture)
+  async function requestGyroPermission() {
+    if (!isMobile) return false;
+
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+      try {
+        const permission = await DeviceOrientationEvent.requestPermission();
+        gyroPermissionGranted = permission === 'granted';
+      } catch (e) {
+        gyroPermissionGranted = false;
+      }
+    } else {
+      // Android and older iOS don't need permission
+      gyroPermissionGranted = true;
+    }
+
+    if (gyroPermissionGranted) {
+      window.addEventListener('deviceorientation', onDeviceOrientation);
+      gyroSupported = true;
+    }
+
+    return gyroPermissionGranted;
+  }
+
+  function onDeviceOrientation(e) {
+    // beta: front-back tilt (-180 to 180), gamma: left-right (-90 to 90)
+    // Normalize to -1 to 1 range
+    gyroX = Math.max(-1, Math.min(1, e.gamma / 45));
+    gyroY = Math.max(-1, Math.min(1, (e.beta - 45) / 45)); // 45° is "neutral" holding position
+  }
+
   function updateCursorState() {
     // Not clickable if not visible or not emerged
     if (!state.visible || !state.emerged) {
@@ -256,47 +318,67 @@ const Blob = (function() {
     canvas.style.cursor = cursorNearBlob ? 'pointer' : 'default';
   }
 
-  function onClick(e) {
-    if (!state.visible || !state.emerged) return;
+  // Helper function to handle blob tap/click at given coordinates
+  function handleBlobInteraction(clientX, clientY) {
+    if (!state.visible || !state.emerged) return false;
 
-    const dx = e.clientX - state.x;
-    const dy = e.clientY - state.y;
+    const dx = clientX - state.x;
+    const dy = clientY - state.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     if (distance < CLICK_RADIUS) {
-      // Expand, despawn, or burst based on context
-      if (shouldExpandOnClick) {
-        // For expand, don't notify handlers yet - they'll be notified when expand completes
-        startExpand(() => {
-          // Notify handlers after expand is done
-          clickHandlers.forEach(fn => fn());
-        });
-      } else {
-        // Trigger glitch effect for visual coherence
-        if (typeof Glitch !== 'undefined') {
-          Glitch.trigger(false);
-        }
+      triggerBlobAction();
+      return true;
+    }
+    return false;
+  }
 
-        // Cycle visual effect and palette with glitch transition
-        if (typeof Visuals !== 'undefined') {
-          Visuals.randomizePalette();
-          Visuals.startCrossfade(); // This also triggers the shader glitch
-        }
-
-        // Save despawn flag before handlers run (handlers may change it via updateDOM)
-        const shouldDespawn = shouldDespawnOnClick;
-
-        // Notify handlers
+  function triggerBlobAction() {
+    // Expand, despawn, or burst based on context
+    if (shouldExpandOnClick) {
+      // For expand, don't notify handlers yet - they'll be notified when expand completes
+      startExpand(() => {
+        // Notify handlers after expand is done
         clickHandlers.forEach(fn => fn());
+      });
+    } else {
+      // Trigger glitch effect for visual coherence
+      if (typeof Glitch !== 'undefined') {
+        Glitch.trigger(false);
+      }
 
-        // Use saved value to decide animation
-        if (shouldDespawn) {
-          startDespawn();
-        } else {
-          startBurst();
-        }
+      // Cycle visual effect and palette with glitch transition
+      if (typeof Visuals !== 'undefined') {
+        Visuals.randomizePalette();
+        Visuals.startCrossfade(); // This also triggers the shader glitch
+      }
+
+      // Save despawn flag before handlers run (handlers may change it via updateDOM)
+      const shouldDespawn = shouldDespawnOnClick;
+
+      // Notify handlers
+      clickHandlers.forEach(fn => fn());
+
+      // Use saved value to decide animation
+      if (shouldDespawn) {
+        startDespawn();
+      } else {
+        startBurst();
       }
     }
+  }
+
+  function onClick(e) {
+    handleBlobInteraction(e.clientX, e.clientY);
+  }
+
+  // Touch tap handler for mobile (document-level to avoid pointer-events issues)
+  function onTouchTap(e) {
+    // Only handle single-finger taps
+    if (e.changedTouches.length !== 1) return;
+
+    const touch = e.changedTouches[0];
+    handleBlobInteraction(touch.clientX, touch.clientY);
   }
 
   function updateMovement(dt) {
@@ -385,10 +467,27 @@ const Blob = (function() {
     const glowSpeed = 8; // How fast the glow transitions
     state.hoverGlow += (targetGlow - state.hoverGlow) * glowSpeed * dt;
 
-    // After emergence, actively follow the cursor
+    // After emergence, actively follow the cursor (desktop) or touch (mobile)
     if (state.emerged && mouseInitialized) {
+      // EXISTING BEHAVIOR - UNCHANGED for desktop
       state.targetX = mouseX;
       state.targetY = mouseY;
+    }
+
+    // Mobile-only: when mouse never initialized, use gyro or touch for blob target
+    // This block ONLY runs on mobile when no mouse events occurred
+    if (state.emerged && !mouseInitialized && isMobile) {
+      if (touchActive) {
+        // Follow touch position when finger is down
+        state.targetX = touchX;
+        state.targetY = touchY;
+      } else if (gyroSupported) {
+        // Wander based on device tilt when no touch
+        const wanderX = width / 2 + gyroX * (width * 0.3);
+        const wanderY = height / 2 + gyroY * (height * 0.3);
+        state.targetX = wanderX;
+        state.targetY = wanderY;
+      }
     }
   }
 
@@ -1159,6 +1258,15 @@ const Blob = (function() {
     canvas.addEventListener('click', onClick);
     window.addEventListener('resize', resize);
 
+    // Mobile-only: touch event listeners
+    if (isMobile) {
+      document.addEventListener('touchstart', onTouchStart, { passive: true });
+      document.addEventListener('touchmove', onTouchMove, { passive: true });
+      document.addEventListener('touchend', onTouchEnd);
+      // Tap handler for blob interaction (document-level to avoid pointer-events issues)
+      document.addEventListener('touchend', onTouchTap);
+    }
+
     // Start animation loop
     requestAnimationFrame(animate);
 
@@ -1271,6 +1379,19 @@ const Blob = (function() {
     }
   }
 
+  // Getters for touch/gyro state (used by journey.js)
+  function getTouchPosition() {
+    return { x: touchX, y: touchY, active: touchActive };
+  }
+
+  function getGyroTilt() {
+    return { x: gyroX, y: gyroY, supported: gyroSupported };
+  }
+
+  function isMobileDevice() {
+    return isMobile;
+  }
+
   return {
     init,
     setTarget,
@@ -1291,6 +1412,11 @@ const Blob = (function() {
     setDespawnLingerTime,
     isExpanding,
     spawnTrailFragment,
-    addInteractiveMovement
+    addInteractiveMovement,
+    // Mobile API
+    getTouchPosition,
+    getGyroTilt,
+    requestGyroPermission,
+    isMobileDevice
   };
 })();

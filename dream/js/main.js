@@ -6,6 +6,14 @@ Blob.init();
 Journey.init();
 Secrets.init();
 
+// Mobile: request gyro permission on first touch (iOS 13+ requires user gesture)
+if (typeof Blob !== 'undefined' && Blob.isMobileDevice()) {
+  document.addEventListener('touchstart', async function onFirstTouch() {
+    await Blob.requestGyroPermission();
+    document.removeEventListener('touchstart', onFirstTouch);
+  }, { once: true });
+}
+
 // Console experience
 (function() {
   const banner = `

@@ -1,6 +1,9 @@
 // Journey - state machine for the dream experience
 
 const Journey = (function() {
+  // Mobile detection - set once at load, never changes
+  const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
   // Section definitions
   const sections = [
     {
@@ -102,12 +105,22 @@ const Journey = (function() {
   const READY_SPAWN_COUNT = 2; // Number of fragments per interval when click-ready
   let repriseContainer = null; // Cached container reference
   let repriseSetText = null; // Cached setText function
+
+  // Mobile thresholds are lower for better pacing with touch/gyro input
+  const REPRISE_THRESHOLD_BASE = isMobile ? 800 : 1500;
   const REPRISE_THRESHOLDS = [
-    1500,  // Stage 0→1: blackness → "dream"
-    1500,  // Stage 1→2: "dream" → "something worth living for"
-    1500,  // Stage 2→3: "living for" → "dying for"
-    1500   // Stage 3→4: spawn blob
+    REPRISE_THRESHOLD_BASE,  // Stage 0→1: blackness → "dream"
+    REPRISE_THRESHOLD_BASE,  // Stage 1→2: "dream" → "something worth living for"
+    REPRISE_THRESHOLD_BASE,  // Stage 2→3: "living for" → "dying for"
+    REPRISE_THRESHOLD_BASE   // Stage 3→4: spawn blob
   ];
+
+  // Mobile touch tracking for reprise
+  let lastRepriseTouchX = 0, lastRepriseTouchY = 0;
+
+  // Gyroscope movement accumulation
+  let gyroTrailAccumulator = 0;
+  let gyroUpdateInterval = null;
 
   function startReadySpawnInterval() {
     if (repriseReadySpawnInterval) return; // Already running
@@ -212,6 +225,188 @@ const Journey = (function() {
     repriseMouseY = e.clientY;
   }
 
+  // Touch movement handler for reprise (mobile only)
+  function onRepriseTouchMove(e) {
+    const currentSection = getCurrentSection();
+    if (currentSection.id !== 'reprise') return;
+
+    const touch = e.touches[0];
+
+    // Only accumulate if we have previous position (skip first move)
+    if (lastRepriseTouchX !== 0 || lastRepriseTouchY !== 0) {
+      const dx = touch.clientX - lastRepriseTouchX;
+      const dy = touch.clientY - lastRepriseTouchY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      // Spawn RGB trail fragments as feedback during charging (before stage 4, not yet click-ready)
+      if (repriseStage < 4 && !repriseClickReady && typeof Blob !== 'undefined') {
+        repriseTrailAccumulator += distance;
+
+        // Calculate progress toward threshold (0 to 1)
+        const threshold = REPRISE_THRESHOLDS[repriseStage];
+        const progress = Math.min(1, repriseMovement / threshold);
+
+        // Spawn distance decreases as we approach threshold (more dense trail)
+        const spawnDistance = TRAIL_SPAWN_DISTANCE_MAX - (TRAIL_SPAWN_DISTANCE_MAX - TRAIL_SPAWN_DISTANCE_MIN) * progress;
+
+        while (repriseTrailAccumulator >= spawnDistance) {
+          repriseTrailAccumulator -= spawnDistance;
+          // Random offset from touch position
+          const angle = Math.random() * Math.PI * 2;
+          const offset = Math.random() * 30;
+          const spawnX = touch.clientX + Math.cos(angle) * offset;
+          const spawnY = touch.clientY + Math.sin(angle) * offset;
+          Blob.spawnTrailFragment(spawnX, spawnY, true); // RGB during charging
+        }
+      }
+
+      // Accumulate movement for text transitions (stages 0-3, not yet click-ready)
+      if (!repriseTransitioning && repriseStage < 4 && !repriseClickReady) {
+        repriseMovement += distance;
+
+        // Check if threshold reached - spawn blob for them to tap
+        const threshold = REPRISE_THRESHOLDS[repriseStage];
+        if (repriseMovement >= threshold) {
+          repriseClickReady = true;
+
+          // Burst of white fragments exploding outward to signal ready state
+          if (typeof Blob !== 'undefined') {
+            const burstCount = 15 + Math.floor(Math.random() * 6);
+            const center = { x: touch.clientX, y: touch.clientY };
+            for (let i = 0; i < burstCount; i++) {
+              const angle = (i / burstCount) * Math.PI * 2 + Math.random() * 0.3;
+              const offset = 10 + Math.random() * 20;
+              const spawnX = touch.clientX + Math.cos(angle) * offset;
+              const spawnY = touch.clientY + Math.sin(angle) * offset;
+              Blob.spawnTrailFragment(spawnX, spawnY, false, center);
+            }
+
+            // Spawn blob at touch position
+            Blob.setShouldDespawn(true);
+            Blob.spawnAt(touch.clientX, touch.clientY);
+          }
+        }
+      }
+
+      // Stage 4: blob building - continue accumulating for interactive spawn
+      if (repriseStage >= 4 && typeof Blob !== 'undefined') {
+        Blob.addInteractiveMovement(distance);
+      }
+    }
+
+    // Update position for next frame
+    lastRepriseTouchX = touch.clientX;
+    lastRepriseTouchY = touch.clientY;
+    // Also update mouse position for compatibility (in case other code uses it)
+    repriseMouseX = touch.clientX;
+    repriseMouseY = touch.clientY;
+  }
+
+  function onRepriseTouchEnd(e) {
+    // Reset touch position tracking on touch end
+    lastRepriseTouchX = 0;
+    lastRepriseTouchY = 0;
+  }
+
+  // Tap handler for reprise (mobile only) - adds movement chunk on tap
+  function onRepriseTap(e) {
+    const currentSection = getCurrentSection();
+    if (currentSection.id !== 'reprise' || repriseTransitioning) return;
+
+    // Get tap position from changedTouches
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+
+    // Stage 4: blob building - taps add to interactive spawn movement
+    if (repriseStage >= 4) {
+      const fragmentCount = 3 + Math.floor(Math.random() * 3); // 3, 4, or 5
+      const BLOB_MOVEMENT_PER_FRAGMENT = 35;
+      const movementValue = fragmentCount * BLOB_MOVEMENT_PER_FRAGMENT;
+
+      if (typeof Blob !== 'undefined') {
+        Blob.addInteractiveMovement(movementValue);
+      }
+    }
+    // Stages 0-3 with clickReady: tapping the blob handles advancement
+  }
+
+  // Gyroscope movement accumulation (mobile only)
+  function updateGyroMovement(dt) {
+    if (typeof Blob === 'undefined') return;
+    if (!Blob.getGyroTilt().supported) return;
+    if (getCurrentSection().id !== 'reprise') return;
+
+    const { x, y } = Blob.getGyroTilt();
+    const tiltMagnitude = Math.sqrt(x * x + y * y);
+
+    // Convert tilt to movement: more tilt = faster accumulation
+    // Max ~200px/sec at full tilt
+    const gyroMovement = tiltMagnitude * 200 * dt;
+
+    if (gyroMovement <= 0) return;
+
+    // Stages 0-3: accumulate movement and spawn trail fragments
+    if (repriseStage < 4 && !repriseClickReady && !repriseTransitioning) {
+      repriseMovement += gyroMovement;
+
+      // Spawn fragments randomly across screen (gyro has no specific position)
+      gyroTrailAccumulator += gyroMovement;
+
+      // Calculate progress toward threshold
+      const threshold = REPRISE_THRESHOLDS[repriseStage];
+      const progress = Math.min(1, repriseMovement / threshold);
+      const spawnDistance = TRAIL_SPAWN_DISTANCE_MAX - (TRAIL_SPAWN_DISTANCE_MAX - TRAIL_SPAWN_DISTANCE_MIN) * progress;
+
+      while (gyroTrailAccumulator >= spawnDistance) {
+        gyroTrailAccumulator -= spawnDistance;
+        // Spawn at random position on screen
+        const spawnX = Math.random() * window.innerWidth;
+        const spawnY = Math.random() * window.innerHeight;
+        Blob.spawnTrailFragment(spawnX, spawnY, true);
+      }
+
+      // Check if threshold reached
+      if (repriseMovement >= threshold) {
+        repriseClickReady = true;
+
+        // Burst at screen center for gyro
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+        const burstCount = 15 + Math.floor(Math.random() * 6);
+        const center = { x: centerX, y: centerY };
+        for (let i = 0; i < burstCount; i++) {
+          const angle = (i / burstCount) * Math.PI * 2 + Math.random() * 0.3;
+          const offset = 10 + Math.random() * 20;
+          const spawnX = centerX + Math.cos(angle) * offset;
+          const spawnY = centerY + Math.sin(angle) * offset;
+          Blob.spawnTrailFragment(spawnX, spawnY, false, center);
+        }
+
+        // Spawn blob at screen center
+        Blob.setShouldDespawn(true);
+        Blob.spawnAt(centerX, centerY);
+      }
+    }
+
+    // Stage 4: add to blob building
+    if (repriseStage >= 4) {
+      Blob.addInteractiveMovement(gyroMovement);
+    }
+  }
+
+  function startGyroUpdateLoop() {
+    if (gyroUpdateInterval) return;
+    // 60fps update loop for gyro movement
+    gyroUpdateInterval = setInterval(() => updateGyroMovement(1/60), 1000/60);
+  }
+
+  function stopGyroUpdateLoop() {
+    if (gyroUpdateInterval) {
+      clearInterval(gyroUpdateInterval);
+      gyroUpdateInterval = null;
+    }
+  }
+
   function advanceRepriseStage() {
     if (!repriseContainer || !repriseSetText || repriseTransitioning) return;
     repriseTransitioning = true;
@@ -310,6 +505,11 @@ const Journey = (function() {
     repriseMouseY = 0;
     document.body.style.cursor = '';
     stopReadySpawnInterval();
+
+    // Mobile-specific resets
+    lastRepriseTouchX = 0;
+    lastRepriseTouchY = 0;
+    gyroTrailAccumulator = 0;
   }
 
   function advance() {
@@ -655,6 +855,15 @@ const Journey = (function() {
 
     // Click handler for reprise section
     document.addEventListener('click', onRepriseClick);
+
+    // Mobile-only: touch events for reprise
+    if (isMobile) {
+      document.addEventListener('touchmove', onRepriseTouchMove, { passive: true });
+      document.addEventListener('touchend', onRepriseTouchEnd);
+
+      // Start gyro movement update loop (will only accumulate when in reprise section)
+      startGyroUpdateLoop();
+    }
   }
 
   function onRepriseClick(e) {
