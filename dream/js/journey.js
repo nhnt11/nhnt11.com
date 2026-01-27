@@ -944,17 +944,55 @@ const Journey = (function() {
     const currentSection = getCurrentSection();
     if (currentSection.id !== 'reprise' || repriseTransitioning) return;
 
-    // Stage 4: blob is building - clicks add to interactive spawn movement
-    if (repriseStage >= 4) {
-      const fragmentCount = 3 + Math.floor(Math.random() * 3); // 3, 4, or 5
-      const BLOB_MOVEMENT_PER_FRAGMENT = 35;
-      const movementValue = fragmentCount * BLOB_MOVEMENT_PER_FRAGMENT;
+    // Skip interactions within 100ms of entering reprise
+    if (performance.now() - repriseEnteredAt < 100) return;
 
-      if (typeof Blob !== 'undefined') {
-        Blob.addInteractiveMovement(movementValue);
+    const fragmentCount = 3 + Math.floor(Math.random() * 3); // 3, 4, or 5
+
+    // Stages 0-3: clicks accumulate movement toward threshold (like moving mouse)
+    if (repriseStage < 4 && !repriseClickReady && typeof Blob !== 'undefined') {
+      const movementPerClick = 80; // Each click adds this much "movement"
+      repriseMovement += movementPerClick;
+
+      // Spawn RGB trail fragments as visual feedback
+      for (let i = 0; i < fragmentCount; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const offset = Math.random() * 40;
+        const spawnX = e.clientX + Math.cos(angle) * offset;
+        const spawnY = e.clientY + Math.sin(angle) * offset;
+        Blob.spawnTrailFragment(spawnX, spawnY, true); // RGB during charging
+      }
+
+      // Check if threshold reached - spawn blob for them to click
+      const threshold = REPRISE_THRESHOLDS[repriseStage];
+      if (repriseMovement >= threshold) {
+        repriseClickReady = true;
+        Blob.setClickReadyGlitch(true);
+
+        // Burst of white fragments exploding outward to signal ready state
+        const burstCount = 15 + Math.floor(Math.random() * 6);
+        const center = { x: e.clientX, y: e.clientY };
+        for (let i = 0; i < burstCount; i++) {
+          const burstAngle = (i / burstCount) * Math.PI * 2 + Math.random() * 0.3;
+          const burstOffset = 10 + Math.random() * 20;
+          const spawnX = e.clientX + Math.cos(burstAngle) * burstOffset;
+          const spawnY = e.clientY + Math.sin(burstAngle) * burstOffset;
+          Blob.spawnTrailFragment(spawnX, spawnY, false, center);
+        }
+
+        // Spawn blob at click position
+        Blob.setShouldDespawn(true);
+        Blob.spawnAt(e.clientX, e.clientY);
       }
     }
-    // Stages 0-3: clicking the blob handles advancement (via onBlobClick handler)
+
+    // Stage 4: blob is building - clicks add to interactive spawn movement
+    if (repriseStage >= 4 && typeof Blob !== 'undefined') {
+      const BLOB_MOVEMENT_PER_FRAGMENT = 35;
+      const movementValue = fragmentCount * BLOB_MOVEMENT_PER_FRAGMENT;
+      Blob.addInteractiveMovement(movementValue);
+    }
+    // When click-ready (stages 0-3), clicking the blob handles advancement (via onBlobClick handler)
   }
 
   function jumpTo(sectionId) {
