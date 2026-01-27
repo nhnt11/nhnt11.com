@@ -1,7 +1,9 @@
-// Entry point - initializes glitch text and WebGL visuals
+// Entry point - initializes glitch text, WebGL visuals, blob guide, and journey
 
 Glitch.init();
 Visuals.init();
+Blob.init();
+Journey.init();
 Secrets.init();
 
 // Console experience
@@ -38,6 +40,12 @@ Secrets.init();
 │  dream.current()        - current effect name              │
 │  dream.portal()         - secondary effect (portal)        │
 │                                                             │
+│  dream.blob.position()  - get blob position                │
+│  dream.blob.target(x,y) - set blob target                  │
+│  dream.blob.mood('...')  - set mood (curious/purposeful/   │
+│                          searching/peaceful)               │
+│  dream.blob.visible()   - check if blob is visible         │
+│                                                             │
 │  press \` for debug overlay    |    konami code for chaos   │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘`;
@@ -68,6 +76,22 @@ Secrets.init();
     feedback: feedbackFn,
     separation: separationFn,
     current: Visuals.getCurrentEffect,
-    portal: () => Visuals.getSecondaryEffect().name
+    portal: () => Visuals.getSecondaryEffect().name,
+    blob: {
+      position: Blob.getPosition,
+      target: Blob.setTarget,
+      mood: Blob.setMood,
+      visible: Blob.isVisible,
+      despawn: Blob.despawn,
+      respawn: Blob.respawn
+    },
+    journey: {
+      advance: Journey.advance,
+      section: Journey.getCurrentSection,
+      subsection: Journey.getCurrentSubsection,
+      progress: Journey.getProgress,
+      sections: Journey.getSections,
+      jumpTo: Journey.jumpTo
+    }
   };
 })();

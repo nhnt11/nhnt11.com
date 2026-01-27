@@ -13,15 +13,76 @@
       <div id="debug-content"></div>
     </div>
     <div class="dream-overlay">
-      <div class="dream-text-container">
-        <span class="dream-parallax" data-layer="0">dream</span>
-        <span class="dream-parallax" data-layer="1">dream</span>
-        <span class="dream-parallax" data-layer="2">dream</span>
-        <span class="dream-slice" data-slice="0">dream</span>
-        <span class="dream-slice" data-slice="1">dream</span>
-        <span class="dream-slice" data-slice="2">dream</span>
-        <span class="dream-slice" data-slice="3">dream</span>
+      <!-- Section: Intro (dream) -->
+      <div class="journey-section active" data-section="intro">
+        <div class="dream-text-container">
+          <span class="dream-parallax" data-layer="0">dream</span>
+          <span class="dream-parallax" data-layer="1">dream</span>
+          <span class="dream-parallax" data-layer="2">dream</span>
+          <span class="dream-slice" data-slice="0" data-text="dream">dream</span>
+          <span class="dream-slice" data-slice="1" data-text="dream">dream</span>
+          <span class="dream-slice" data-slice="2" data-text="dream">dream</span>
+          <span class="dream-slice" data-slice="3" data-text="dream">dream</span>
+        </div>
       </div>
+
+      <!-- Section: Believe -->
+      <div class="journey-section" data-section="believe">
+        <div class="dream-text-container journey-text">
+          <span class="dream-parallax" data-layer="0">believe</span>
+          <span class="dream-parallax" data-layer="1">believe</span>
+          <span class="dream-parallax" data-layer="2">believe</span>
+          <span class="dream-slice" data-slice="0" data-text="believe">believe</span>
+          <span class="dream-slice" data-slice="1" data-text="believe">believe</span>
+          <span class="dream-slice" data-slice="2" data-text="believe">believe</span>
+          <span class="dream-slice" data-slice="3" data-text="believe">believe</span>
+        </div>
+      </div>
+
+      <!-- Section: Endeavor -->
+      <div class="journey-section" data-section="endeavor">
+        <div class="dream-text-container journey-text">
+          <span class="dream-parallax" data-layer="0">endeavor</span>
+          <span class="dream-parallax" data-layer="1">endeavor</span>
+          <span class="dream-parallax" data-layer="2">endeavor</span>
+          <span class="dream-slice" data-slice="0" data-text="endeavor">endeavor</span>
+          <span class="dream-slice" data-slice="1" data-text="endeavor">endeavor</span>
+          <span class="dream-slice" data-slice="2" data-text="endeavor">endeavor</span>
+          <span class="dream-slice" data-slice="3" data-text="endeavor">endeavor</span>
+        </div>
+      </div>
+
+      <!-- Section: Desire -->
+      <div class="journey-section" data-section="desire">
+        <div class="dream-text-container journey-text">
+          <span class="dream-parallax" data-layer="0">desire</span>
+          <span class="dream-parallax" data-layer="1">desire</span>
+          <span class="dream-parallax" data-layer="2">desire</span>
+          <span class="dream-slice" data-slice="0" data-text="desire">desire</span>
+          <span class="dream-slice" data-slice="1" data-text="desire">desire</span>
+          <span class="dream-slice" data-slice="2" data-text="desire">desire</span>
+          <span class="dream-slice" data-slice="3" data-text="desire">desire</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Reprise section - outside overlay for different blend mode -->
+    <div class="reprise-section" data-section="reprise">
+      <div class="dream-text-container reprise-text">
+        <span class="dream-parallax" data-layer="0"></span>
+        <span class="dream-parallax" data-layer="1"></span>
+        <span class="dream-parallax" data-layer="2"></span>
+        <span class="dream-slice" data-slice="0"></span>
+        <span class="dream-slice" data-slice="1"></span>
+        <span class="dream-slice" data-slice="2"></span>
+        <span class="dream-slice" data-slice="3"></span>
+      </div>
+    </div>
+
+    <!-- Conclusion section - continues black aesthetic -->
+    <div class="conclusion-section" data-section="conclusion">
+      <div class="journey-word">let's build our dreams together</div>
     </div>
     <!-- Shaders -->
     <script src="js/shaders/vertex.js"></script>
@@ -45,6 +106,8 @@
     <!-- Core -->
     <script src="js/visuals.js"></script>
     <script src="js/glitch.js"></script>
+    <script src="js/blob.js"></script>
+    <script src="js/journey.js"></script>
     <script src="js/secrets.js"></script>
     <script src="js/main.js"></script>
   </body>
