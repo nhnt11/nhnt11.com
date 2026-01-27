@@ -711,6 +711,7 @@ body.index-body {
 [data-section="endeavor"] .dream-text-container { --text-vw: 14vw; } /* endeavor - 8 chars */
 [data-section="desire"] .dream-text-container { --text-vw: 18vw; } /* desire - 6 chars */
 [data-section="reprise"] .dream-text-container { --text-vw: 23vw; } /* dream - 5 chars */
+[data-section="reprise"] .dream-text-container[data-text-size="long"] { --text-vw: 5vw; } /* longer phrases - fits on one line */
 
 
 .journey-reveal {
@@ -759,6 +760,7 @@ body.index-body {
   animation: none;
   opacity: 0;
   transition: none; /* Appears instantly via glitch */
+  white-space: nowrap;
 }
 
 .reprise-text.visible {
@@ -779,25 +781,11 @@ body.index-body {
 }
 
 .reprise-text .dream-parallax[data-layer="2"] {
-  color: #f00;
+  color: #f0f;
 }
 
 .reprise-text .dream-slice {
   color: var(--white);
-}
-
-.reprise-section .journey-reveal {
-  font-family: var(--font-mono);
-  font-size: clamp(1rem, 4vw, 2.5rem);
-  color: var(--white);
-  opacity: 0;
-  margin-top: 2rem;
-  transition: none; /* Appears instantly via glitch */
-}
-
-.reprise-section .journey-word.visible,
-.reprise-section .journey-reveal.visible {
-  opacity: 1;
 }
 
 /* Conclusion section - white background (transitions from blob expand) */

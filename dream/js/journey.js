@@ -230,11 +230,19 @@ const Journey = (function() {
 
     // Reset reprise/conclusion visibility states when not in those sections
     if (!isBlackPhase) {
-      const repriseText = sectionElements['reprise']?.querySelector('.reprise-text');
-      const repriseReveal = sectionElements['reprise']?.querySelector('.journey-reveal');
+      const repriseContainer = sectionElements['reprise']?.querySelector('.reprise-text');
       const conclusionWord = sectionElements['conclusion']?.querySelector('.journey-word');
-      if (repriseText) repriseText.classList.remove('visible');
-      if (repriseReveal) repriseReveal.classList.remove('visible');
+      if (repriseContainer) {
+        repriseContainer.classList.remove('visible');
+        repriseContainer.removeAttribute('data-text-size');
+        // Clear all text elements
+        repriseContainer.querySelectorAll('.dream-parallax, .dream-slice').forEach(el => {
+          el.textContent = '';
+          if (el.classList.contains('dream-slice')) {
+            el.setAttribute('data-text', '');
+          }
+        });
+      }
       if (conclusionWord) conclusionWord.classList.remove('visible');
     }
 
@@ -255,52 +263,72 @@ const Journey = (function() {
       }
     });
 
-    // Special handling for reprise - glitch text into existence after blackness lingers
+    // Special handling for reprise - sequence of text glitches then blob spawn
     if (currentSection.id === 'reprise') {
-      const textEl = sectionElements['reprise'].querySelector('.reprise-text');
-      const revealEl = sectionElements['reprise'].querySelector('.journey-reveal');
+      const container = sectionElements['reprise'].querySelector('.reprise-text');
 
-      // Let blackness linger, then glitch "dream" into existence
-      if (textEl) {
-        setTimeout(() => {
-          if (typeof Glitch !== 'undefined') {
-            Glitch.triggerHeavy(() => {
-              textEl.classList.add('visible');
-            });
-          } else {
-            textEl.classList.add('visible');
-          }
-        }, 2500); // Pause to let blackness linger
+      // Helper to update all text elements in the container
+      function setRepriseText(text, isLong = false) {
+        if (!container) return;
+        // Set size attribute for CSS
+        container.setAttribute('data-text-size', isLong ? 'long' : 'short');
+        // Update parallax layers
+        container.querySelectorAll('.dream-parallax').forEach(el => {
+          el.textContent = text;
+        });
+        // Update slices (both content and data-text attribute for ::before)
+        container.querySelectorAll('.dream-slice').forEach(el => {
+          el.textContent = text;
+          el.setAttribute('data-text', text);
+        });
       }
 
-      // Then glitch the reveal text into existence, and spawn blob after
-      if (revealEl) {
+      if (container) {
+        // Step 1: After blackness lingers, glitch in "dream"
         setTimeout(() => {
           if (typeof Glitch !== 'undefined') {
             Glitch.triggerHeavy(() => {
-              revealEl.classList.add('visible');
-              // Spawn blob after reveal text appears - with 12x fragments (216 total), interactive spawn, and expand mode
-              if (typeof Blob !== 'undefined') {
-                setTimeout(() => {
-                  Blob.setFragmentMultiplier(12); // 18 * 12 = 216 fragments
-                  Blob.setInteractiveSpawn(true); // Fragments spawn as mouse moves
-                  Blob.setShouldExpand(true); // Auto-expands when fully built
-                  Blob.setRadiusMultiplier(2); // 2x bigger blob
-                  Blob.respawn();
-                }, 500); // Short delay after text appears
-              }
+              setRepriseText('dream');
+              container.classList.add('visible');
             });
           } else {
-            revealEl.classList.add('visible');
-            if (typeof Blob !== 'undefined') {
-              Blob.setFragmentMultiplier(12);
-              Blob.setInteractiveSpawn(true);
-              Blob.setShouldExpand(true);
-              Blob.setRadiusMultiplier(2);
-              Blob.respawn();
-            }
+            setRepriseText('dream');
+            container.classList.add('visible');
           }
-        }, 5500); // After dream has appeared
+        }, 2500);
+
+        // Step 2: Glitch to "something worth living for"
+        setTimeout(() => {
+          if (typeof Glitch !== 'undefined') {
+            Glitch.triggerHeavy(() => {
+              setRepriseText('something worth living for', true);
+            });
+          } else {
+            setRepriseText('something worth living for', true);
+          }
+        }, 5000);
+
+        // Step 3: Glitch to "something worth dying for"
+        setTimeout(() => {
+          if (typeof Glitch !== 'undefined') {
+            Glitch.triggerHeavy(() => {
+              setRepriseText('something worth dying for', true);
+            });
+          } else {
+            setRepriseText('something worth dying for', true);
+          }
+
+          // Step 4: Spawn blob after final text appears
+          if (typeof Blob !== 'undefined') {
+            setTimeout(() => {
+              Blob.setFragmentMultiplier(12); // 18 * 12 = 216 fragments
+              Blob.setInteractiveSpawn(true); // Fragments spawn as mouse moves
+              Blob.setShouldExpand(true); // Auto-expands when fully built
+              Blob.setRadiusMultiplier(2); // 2x bigger blob
+              Blob.respawn();
+            }, 500);
+          }
+        }, 7500);
       }
     }
 
