@@ -51,6 +51,7 @@ const Blob = (function() {
 
   // Click handling
   let clickHandlers = [];
+  let expandStartHandlers = [];
   const CLICK_RADIUS = 40;
   let shouldDespawnOnClick = false; // If false, burst and reform instead
   let shouldExpandOnClick = false; // For reprise -> conclusion transition
@@ -70,10 +71,96 @@ const Blob = (function() {
   const EMERGENCE_DELAY = 5500; // After intro animation (1.5s delay + 4s zoom)
   const EMERGENCE_DURATION = 2500;
   const DESPAWN_DURATION = 800;
+  let emergenceTimeout = null; // Track scheduled emergence for cancellation
 
   // Fragment system for spawn/despawn animations
   const fragments = [];
   const FRAGMENT_COUNT = 18;
+
+  // Trail fragments - small particles that spawn and quickly evaporate
+  const trailFragments = [];
+  const TRAIL_LIFETIME = 0.6; // seconds before fully faded
+  const TRAIL_RADIUS = 4;
+
+  function spawnTrailFragment(x, y, useRGB = false) {
+    // Spawn a small trail fragment at the given position
+    // If useRGB is true, pick a random RGB color; otherwise white
+    let color = null;
+    if (useRGB) {
+      color = RGB_COLORS[Math.floor(Math.random() * RGB_COLORS.length)];
+    }
+
+    trailFragments.push({
+      x: x,
+      y: y,
+      radius: TRAIL_RADIUS * (0.6 + Math.random() * 0.8), // 60-140% of base size
+      opacity: 0.8,
+      age: 0,
+      color: color, // null = white, otherwise RGB
+      // Slight drift in random direction
+      driftX: (Math.random() - 0.5) * 20,
+      driftY: (Math.random() - 0.5) * 20 - 10 // Slight upward bias
+    });
+  }
+
+  function updateTrailFragments(dt) {
+    // Update and remove expired trail fragments
+    for (let i = trailFragments.length - 1; i >= 0; i--) {
+      const frag = trailFragments[i];
+      frag.age += dt;
+
+      // Apply drift
+      frag.x += frag.driftX * dt;
+      frag.y += frag.driftY * dt;
+
+      // Fade out
+      frag.opacity = 0.8 * (1 - frag.age / TRAIL_LIFETIME);
+
+      // Remove when faded
+      if (frag.age >= TRAIL_LIFETIME) {
+        trailFragments.splice(i, 1);
+      }
+    }
+  }
+
+  function renderTrailFragments() {
+    if (trailFragments.length === 0) return;
+
+    // Use additive blending for nice glow
+    ctx.globalCompositeOperation = 'lighter';
+
+    trailFragments.forEach(frag => {
+      if (frag.opacity <= 0) return;
+
+      ctx.save();
+      ctx.globalAlpha = frag.opacity;
+
+      // Get color (RGB or white)
+      const color = frag.color || { r: 255, g: 255, b: 255 };
+      const colorStr = `rgb(${color.r}, ${color.g}, ${color.b})`;
+
+      // Soft glow
+      const glowRadius = frag.radius * 3;
+      const gradient = ctx.createRadialGradient(frag.x, frag.y, 0, frag.x, frag.y, glowRadius);
+      gradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, 0.6)`);
+      gradient.addColorStop(0.4, `rgba(${color.r}, ${color.g}, ${color.b}, 0.2)`);
+      gradient.addColorStop(1, `rgba(${color.r}, ${color.g}, ${color.b}, 0)`);
+      ctx.beginPath();
+      ctx.arc(frag.x, frag.y, glowRadius, 0, Math.PI * 2);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      // Core
+      ctx.beginPath();
+      ctx.arc(frag.x, frag.y, frag.radius, 0, Math.PI * 2);
+      ctx.fillStyle = colorStr;
+      ctx.fill();
+
+      ctx.restore();
+    });
+
+    ctx.globalCompositeOperation = 'source-over';
+  }
 
   function createCanvas() {
     canvas = document.createElement('canvas');
@@ -116,7 +203,8 @@ const Blob = (function() {
   }
 
   function updateCursorState() {
-    if (!state.visible || !state.emerged) {
+    // Not clickable if not visible, not emerged, or will auto-expand
+    if (!state.visible || !state.emerged || shouldExpandOnClick) {
       canvas.style.pointerEvents = 'none';
       canvas.style.cursor = 'default';
       cursorNearBlob = false;
@@ -153,6 +241,12 @@ const Blob = (function() {
         // Trigger glitch effect for visual coherence
         if (typeof Glitch !== 'undefined') {
           Glitch.trigger(false);
+        }
+
+        // Cycle visual effect and palette with glitch transition
+        if (typeof Visuals !== 'undefined') {
+          Visuals.randomizePalette();
+          Visuals.startCrossfade(); // This also triggers the shader glitch
         }
 
         // Save despawn flag before handlers run (handlers may change it via updateDOM)
@@ -545,7 +639,7 @@ const Blob = (function() {
     burstStartX = state.x;
     burstStartY = state.y;
 
-    const explodeDistance = width * BURST_DISTANCE;
+    const baseExplodeDistance = width * BURST_DISTANCE;
     const count = Math.floor(FRAGMENT_COUNT * fragmentMultiplier);
 
     for (let i = 0; i < count; i++) {
@@ -554,6 +648,10 @@ const Blob = (function() {
 
       // Assign R, G, or B color
       const color = RGB_COLORS[i % 3];
+
+      // Each fragment gets a different distance (0.4x to 1.4x base distance)
+      const distanceMultiplier = 0.4 + Math.random() * 1.0;
+      const explodeDistance = baseExplodeDistance * distanceMultiplier;
 
       // Target position when fully exploded
       const explodeX = burstStartX + Math.cos(angle) * explodeDistance;
@@ -713,6 +811,9 @@ const Blob = (function() {
     expandCallback = onComplete;
     expandCallbackFired = false;
 
+    // Notify expand start handlers
+    expandStartHandlers.forEach(fn => fn());
+
     // Trigger heavy glitch during expand
     if (typeof Glitch !== 'undefined') {
       Glitch.triggerHeavy();
@@ -851,6 +952,9 @@ const Blob = (function() {
   function render() {
     ctx.clearRect(0, 0, width, height);
 
+    // Trail fragments render even when blob is not visible (for reprise mouse feedback)
+    renderTrailFragments();
+
     if (!state.visible) return;
 
     // Draw fragments first (behind main blob)
@@ -874,6 +978,7 @@ const Blob = (function() {
     updateExpand(dt);
     updateMovement(dt);
     updatePersonality(dt);
+    updateTrailFragments(dt);
     updateCursorState();
     render();
 
@@ -923,7 +1028,7 @@ const Blob = (function() {
     requestAnimationFrame(animate);
 
     // Schedule emergence after intro animation
-    setTimeout(startEmergence, EMERGENCE_DELAY);
+    emergenceTimeout = setTimeout(startEmergence, EMERGENCE_DELAY);
   }
 
   // Public API
@@ -958,6 +1063,10 @@ const Blob = (function() {
 
   function onBlobClick(fn) {
     clickHandlers.push(fn);
+  }
+
+  function onExpandStart(fn) {
+    expandStartHandlers.push(fn);
   }
 
   function getPosition() {
@@ -1002,14 +1111,41 @@ const Blob = (function() {
     return state.expanding;
   }
 
+  function addInteractiveMovement(amount) {
+    // Add movement to the interactive spawn accumulator
+    // Used for clicks during reprise blob building
+    if (interactiveSpawn && state.emerging && !state.emerged) {
+      mouseMovementAccumulator += amount;
+    }
+  }
+
+  function hide() {
+    // Instantly hide the blob without animation
+    state.visible = false;
+    state.emerged = false;
+    state.emerging = false;
+    state.despawning = false;
+    state.bursting = false;
+    state.expanding = false;
+    state.opacity = 0;
+    fragments.length = 0;
+    // Cancel any pending emergence
+    if (emergenceTimeout) {
+      clearTimeout(emergenceTimeout);
+      emergenceTimeout = null;
+    }
+  }
+
   return {
     init,
     setTarget,
     setMood,
     onBlobClick,
+    onExpandStart,
     getPosition,
     isVisible,
     despawn: startDespawn,
+    hide,
     respawn,
     setShouldDespawn,
     setShouldExpand,
@@ -1017,6 +1153,8 @@ const Blob = (function() {
     setInteractiveSpawn,
     setRadiusMultiplier,
     setDespawnLingerTime,
-    isExpanding
+    isExpanding,
+    spawnTrailFragment,
+    addInteractiveMovement
   };
 })();

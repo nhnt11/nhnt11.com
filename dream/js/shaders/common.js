@@ -16,8 +16,8 @@ const PALETTES = [
   [[0.9, 0.95, 1.0], [0.4, 0.7, 1.0], [0.1, 0.2, 0.6]],
   // 6: Neon (hot pink, cyan, yellow)
   [[1.0, 0.0, 0.5], [0.0, 1.0, 0.9], [1.0, 1.0, 0.0]],
-  // 7: Ember (dark red, orange, yellow-white)
-  [[0.3, 0.0, 0.0], [0.9, 0.3, 0.0], [1.0, 0.9, 0.6]],
+  // 7: Ember (dark red, bright orange, golden yellow)
+  [[0.4, 0.05, 0.0], [1.0, 0.5, 0.0], [1.0, 0.85, 0.2]],
 ];
 
 const PALETTE_COUNT = PALETTES.length;
@@ -34,7 +34,7 @@ function generatePaletteGLSL() {
 }
 
 // Palettes excluded from random rotation (still accessible via console/debug)
-const excludedPalettes = [4, 6]; // Toxic, Neon
+const excludedPalettes = [0, 4, 6]; // Lava, Toxic, Neon
 
 // Pick a random palette, excluding certain palettes from rotation
 const randomPalette = () => {

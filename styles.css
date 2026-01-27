@@ -777,7 +777,7 @@ body.index-body {
 }
 
 .reprise-text .dream-parallax[data-layer="1"] {
-  color: var(--white);
+  opacity: 0; /* Hide static base layer in reprise - only keep moving parallax layers */
 }
 
 .reprise-text .dream-parallax[data-layer="2"] {
@@ -786,6 +786,17 @@ body.index-body {
 
 .reprise-text .dream-slice {
   color: var(--white);
+}
+
+/* Glow layer - inverts visualization beneath for readability on dark colors */
+.reprise-text .dream-glow {
+  position: absolute;
+  color: var(--white);
+  filter: blur(15px);
+  opacity: 0.4;
+  mix-blend-mode: difference;
+  z-index: -1;
+  pointer-events: none;
 }
 
 /* Conclusion section - white background (transitions from blob expand) */

@@ -231,5 +231,56 @@ const Glitch = (function() {
     if (opts.convergenceRate !== undefined) convergenceRate = opts.convergenceRate;
   }
 
-  return { init, trigger, triggerHeavy, getSeparation, setSeparation };
+  // Quick glitch for fast transitions - fires callback almost immediately
+  function triggerQuick(onMidGlitch) {
+    isGlitching = true;
+
+    // Trigger visual glitch
+    Visuals.triggerGlitch();
+
+    const quickGlitchDuration = 250;
+    const glitchInterval = 40;
+    let elapsed = 0;
+    let midGlitchFired = false;
+
+    function doQuickGlitch() {
+      slices.forEach(slice => {
+        slice.style.opacity = '';
+        slice.style.transform = '';
+        slice.classList.remove('glitching');
+
+        // Intense but brief
+        const intensity = 2;
+        slice.style.setProperty('--glitch-x', `${(Math.random() - 0.5) * 80 * intensity}px`);
+        slice.style.setProperty('--glitch-skew', `${(Math.random() - 0.5) * 15 * intensity}deg`);
+        slice.classList.add('glitching');
+      });
+
+      containers.forEach(c => c.classList.add('glitching'));
+
+      // Fire callback very early (at ~80ms)
+      if (!midGlitchFired && elapsed >= 80) {
+        midGlitchFired = true;
+        if (onMidGlitch) onMidGlitch();
+      }
+
+      elapsed += glitchInterval;
+
+      if (elapsed < quickGlitchDuration) {
+        setTimeout(doQuickGlitch, glitchInterval);
+      } else {
+        containers.forEach(c => c.classList.remove('glitching'));
+        slices.forEach(slice => {
+          slice.classList.remove('glitching');
+          slice.style.opacity = '';
+          slice.style.transform = '';
+        });
+        isGlitching = false;
+      }
+    }
+
+    doQuickGlitch();
+  }
+
+  return { init, trigger, triggerHeavy, triggerQuick, getSeparation, setSeparation };
 })();

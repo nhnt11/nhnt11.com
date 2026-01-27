@@ -614,7 +614,7 @@ const Visuals = (function() {
   }
 
   // Palettes excluded from random rotation (still accessible via console/debug)
-  const excludedPalettes = [4, 6]; // Toxic, Neon
+  const excludedPalettes = [0, 4, 6]; // Lava, Toxic, Neon
 
   function randomizePalette() {
     if (primaryParams.palette !== undefined) {

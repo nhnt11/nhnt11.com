@@ -47,7 +47,7 @@ const Journey = (function() {
   let dreamOverlay = null;
 
   // Timing
-  const TRANSITION_DURATION = 2200; // Accounts for two-phase text transitions
+  const TRANSITION_DURATION = 1600; // Accounts for two-phase text transitions
 
   function getCurrentSection() {
     return sections[currentSectionIndex];
@@ -88,6 +88,204 @@ const Journey = (function() {
   // Timing for two-phase text transitions
   const TEXT_TRANSITION_GAP = 400; // Pause between hide and reveal
 
+  // Reprise mouse movement tracking
+  let repriseMouseX = 0, repriseMouseY = 0;
+  let repriseMovement = 0;
+  let repriseTrailAccumulator = 0; // Accumulates movement for trail fragment spawning
+  const TRAIL_SPAWN_DISTANCE = 25; // Pixels of movement to spawn one trail fragment
+  let repriseStage = 0; // 0=waiting, 1=dream shown, 2=living for shown, 3=dying for shown, 4=blob spawning
+  let repriseTransitioning = false; // Prevent multiple triggers during glitch
+  let repriseClickReady = false; // True when enough movement accumulated, waiting for click
+  let repriseReadySpawnInterval = null; // Interval for spawning fragments while waiting for click
+  const READY_SPAWN_INTERVAL = 80; // ms between fragment spawns when click-ready
+  let repriseContainer = null; // Cached container reference
+  let repriseSetText = null; // Cached setText function
+  const REPRISE_THRESHOLDS = [
+    200,   // Stage 0→1: blackness → "dream"
+    300,   // Stage 1→2: "dream" → "something worth living for"
+    600,   // Stage 2→3: "living for" → "dying for" (2x for longer pause)
+    100    // Stage 3→4: spawn blob
+  ];
+
+  function startReadySpawnInterval() {
+    if (repriseReadySpawnInterval) return; // Already running
+    repriseReadySpawnInterval = setInterval(() => {
+      if (repriseMouseX !== 0 && repriseMouseY !== 0 && typeof Blob !== 'undefined') {
+        // Spawn a fragment at random offset from last mouse position
+        const angle = Math.random() * Math.PI * 2;
+        const offset = Math.random() * 30;
+        const spawnX = repriseMouseX + Math.cos(angle) * offset;
+        const spawnY = repriseMouseY + Math.sin(angle) * offset;
+        Blob.spawnTrailFragment(spawnX, spawnY);
+      }
+    }, READY_SPAWN_INTERVAL);
+  }
+
+  function stopReadySpawnInterval() {
+    if (repriseReadySpawnInterval) {
+      clearInterval(repriseReadySpawnInterval);
+      repriseReadySpawnInterval = null;
+    }
+  }
+
+  function updateRepriseCursor() {
+    // Show pointer cursor when click is ready (stages 0-3 only)
+    const currentSection = getCurrentSection();
+    if (currentSection.id === 'reprise' && repriseClickReady && repriseStage < 4) {
+      document.body.style.cursor = 'pointer';
+      startReadySpawnInterval();
+    } else if (currentSection.id === 'reprise') {
+      document.body.style.cursor = '';
+      stopReadySpawnInterval();
+    }
+  }
+
+  function onRepriseMouseMove(e) {
+    const currentSection = getCurrentSection();
+    if (currentSection.id !== 'reprise') return;
+
+    // Only accumulate if we have previous position (skip first move)
+    const hasPrevious = repriseMouseX !== 0 || repriseMouseY !== 0;
+    if (hasPrevious) {
+      const dx = e.clientX - repriseMouseX;
+      const dy = e.clientY - repriseMouseY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      // Spawn RGB trail fragments as feedback during charging (before stage 4, not yet click-ready)
+      if (repriseStage < 4 && !repriseClickReady && typeof Blob !== 'undefined') {
+        repriseTrailAccumulator += distance;
+        while (repriseTrailAccumulator >= TRAIL_SPAWN_DISTANCE) {
+          repriseTrailAccumulator -= TRAIL_SPAWN_DISTANCE;
+          // Random offset up to 30px from mouse position
+          const angle = Math.random() * Math.PI * 2;
+          const offset = Math.random() * 30;
+          const spawnX = e.clientX + Math.cos(angle) * offset;
+          const spawnY = e.clientY + Math.sin(angle) * offset;
+          Blob.spawnTrailFragment(spawnX, spawnY, true); // RGB during charging
+        }
+      }
+
+      // Accumulate movement for text transitions (stages 0-3, not yet click-ready)
+      if (!repriseTransitioning && repriseStage < 4 && !repriseClickReady) {
+        repriseMovement += distance;
+
+        // Check if threshold reached - enable click instead of auto-advancing
+        const threshold = REPRISE_THRESHOLDS[repriseStage];
+        if (repriseMovement >= threshold) {
+          repriseClickReady = true;
+          updateRepriseCursor();
+        }
+      }
+
+      // Stage 4: blob building - continue accumulating for interactive spawn
+      if (repriseStage >= 4 && typeof Blob !== 'undefined') {
+        Blob.addInteractiveMovement(distance);
+      }
+    }
+
+    // Update position for next frame
+    repriseMouseX = e.clientX;
+    repriseMouseY = e.clientY;
+  }
+
+  function advanceRepriseStage() {
+    if (!repriseContainer || !repriseSetText || repriseTransitioning) return;
+    repriseTransitioning = true;
+
+    const container = repriseContainer;
+    const setRepriseText = repriseSetText;
+
+    function hideRepriseText() {
+      container.classList.remove('visible');
+      setRepriseText('');
+    }
+
+    if (repriseStage === 0) {
+      // Show "dream"
+      if (typeof Glitch !== 'undefined') {
+        Glitch.triggerHeavy(() => {
+          setRepriseText('dream');
+          container.classList.add('visible');
+          repriseStage = 1;
+          repriseTransitioning = false;
+        });
+      } else {
+        setRepriseText('dream');
+        container.classList.add('visible');
+        repriseStage = 1;
+        repriseTransitioning = false;
+      }
+    } else if (repriseStage === 1) {
+      // Transition to "something worth living for"
+      if (typeof Glitch !== 'undefined') {
+        Glitch.triggerQuick(() => {
+          hideRepriseText();
+        });
+        setTimeout(() => {
+          Glitch.triggerHeavy(() => {
+            setRepriseText('something worth living for', true);
+            container.classList.add('visible');
+            repriseStage = 2;
+            repriseTransitioning = false;
+          });
+        }, 250 + TEXT_TRANSITION_GAP);
+      } else {
+        setRepriseText('something worth living for', true);
+        repriseStage = 2;
+        repriseTransitioning = false;
+      }
+    } else if (repriseStage === 2) {
+      // Transition to "something worth dying for"
+      if (typeof Glitch !== 'undefined') {
+        const currentWidth = container.offsetWidth;
+        container.style.minWidth = currentWidth + 'px';
+        container.style.textAlign = 'left';
+
+        Glitch.triggerQuick(() => {
+          setRepriseText('something worth', true);
+        });
+        setTimeout(() => {
+          Glitch.triggerHeavy(() => {
+            setRepriseText('something worth dying for', true);
+            container.style.minWidth = '';
+            container.style.textAlign = '';
+            repriseStage = 3;
+            repriseTransitioning = false;
+          });
+        }, 250 + TEXT_TRANSITION_GAP);
+      } else {
+        setRepriseText('something worth dying for', true);
+        repriseStage = 3;
+        repriseTransitioning = false;
+      }
+    } else if (repriseStage === 3) {
+      // Spawn blob
+      if (typeof Blob !== 'undefined') {
+        Blob.setFragmentMultiplier(12);
+        Blob.setInteractiveSpawn(true);
+        Blob.setShouldExpand(true);
+        Blob.setRadiusMultiplier(2);
+        Blob.respawn();
+      }
+      repriseStage = 4;
+      repriseTransitioning = false;
+      // Show pointer cursor during blob building
+      document.body.style.cursor = 'pointer';
+    }
+  }
+
+  function resetRepriseState() {
+    repriseMovement = 0;
+    repriseTrailAccumulator = 0;
+    repriseStage = 0;
+    repriseTransitioning = false;
+    repriseClickReady = false;
+    repriseMouseX = 0;
+    repriseMouseY = 0;
+    document.body.style.cursor = '';
+    stopReadySpawnInterval();
+  }
+
   function advance() {
     if (!canAdvance()) return false;
 
@@ -120,9 +318,9 @@ const Journey = (function() {
       // Update DOM immediately (shows black)
       updateDOM();
     } else if (isTextTransition && typeof Glitch !== 'undefined') {
-      // Two-phase transition: glitch out → pause → glitch in
-      // Phase 1: Glitch to hide current text
-      Glitch.triggerHeavy(() => {
+      // Two-phase transition: quick glitch out → pause → glitch in
+      // Phase 1: Quick glitch to hide current text (almost instant)
+      Glitch.triggerQuick(() => {
         // Hide current section mid-glitch
         const currentEl = sectionElements[section.id];
         if (currentEl) currentEl.classList.remove('active');
@@ -171,7 +369,7 @@ const Journey = (function() {
             Blob.setDespawnLingerTime(newSection.id === 'desire' ? 1.2 : 0);
           }
         });
-      }, 800 + TEXT_TRANSITION_GAP); // 800ms for first glitch + gap
+      }, 250 + TEXT_TRANSITION_GAP); // 250ms for quick glitch + gap
     } else if (typeof Glitch !== 'undefined') {
       // Normal transition with heavy glitch (for non-text sections)
       Glitch.triggerHeavy(() => {
@@ -281,6 +479,11 @@ const Journey = (function() {
     const currentSection = getCurrentSection();
     const isBlackPhase = currentSection.id === 'reprise' || currentSection.id === 'conclusion';
 
+    // Reset cursor when leaving reprise
+    if (currentSection.id !== 'reprise') {
+      document.body.style.cursor = '';
+    }
+
     // Hide dream-overlay during black phase, show it otherwise
     if (isBlackPhase) {
       dreamOverlay.classList.add('hidden');
@@ -323,7 +526,7 @@ const Journey = (function() {
       }
     });
 
-    // Special handling for reprise - sequence of text glitches then blob spawn
+    // Special handling for reprise - mouse movement triggers text transitions
     if (currentSection.id === 'reprise') {
       const container = sectionElements['reprise'].querySelector('.reprise-text');
 
@@ -332,6 +535,9 @@ const Journey = (function() {
         if (!container) return;
         // Set size attribute for CSS
         container.setAttribute('data-text-size', isLong ? 'long' : 'short');
+        // Update glow layer
+        const glow = container.querySelector('.dream-glow');
+        if (glow) glow.textContent = text;
         // Update parallax layers
         container.querySelectorAll('.dream-parallax').forEach(el => {
           el.textContent = text;
@@ -344,51 +550,10 @@ const Journey = (function() {
       }
 
       if (container) {
-        // Step 1: After blackness lingers, glitch in "dream"
-        setTimeout(() => {
-          if (typeof Glitch !== 'undefined') {
-            Glitch.triggerHeavy(() => {
-              setRepriseText('dream');
-              container.classList.add('visible');
-            });
-          } else {
-            setRepriseText('dream');
-            container.classList.add('visible');
-          }
-        }, 2500);
-
-        // Step 2: Glitch to "something worth living for"
-        setTimeout(() => {
-          if (typeof Glitch !== 'undefined') {
-            Glitch.triggerHeavy(() => {
-              setRepriseText('something worth living for', true);
-            });
-          } else {
-            setRepriseText('something worth living for', true);
-          }
-        }, 5000);
-
-        // Step 3: Glitch to "something worth dying for"
-        setTimeout(() => {
-          if (typeof Glitch !== 'undefined') {
-            Glitch.triggerHeavy(() => {
-              setRepriseText('something worth dying for', true);
-            });
-          } else {
-            setRepriseText('something worth dying for', true);
-          }
-
-          // Step 4: Spawn blob after final text appears
-          if (typeof Blob !== 'undefined') {
-            setTimeout(() => {
-              Blob.setFragmentMultiplier(12); // 18 * 12 = 216 fragments
-              Blob.setInteractiveSpawn(true); // Fragments spawn as mouse moves
-              Blob.setShouldExpand(true); // Auto-expands when fully built
-              Blob.setRadiusMultiplier(2); // 2x bigger blob
-              Blob.respawn();
-            }, 500);
-          }
-        }, 7500);
+        // Reset reprise state and cache references for mouse handler
+        resetRepriseState();
+        repriseContainer = container;
+        repriseSetText = setRepriseText;
       }
     }
 
@@ -433,6 +598,11 @@ const Journey = (function() {
       Blob.onBlobClick(() => {
         advance();
       });
+
+      // Reset cursor when blob expand (whitewash) starts
+      Blob.onExpandStart(() => {
+        document.body.style.cursor = '';
+      });
     }
 
     // Set initial blob mood
@@ -444,6 +614,42 @@ const Journey = (function() {
       }, 6000);
     }
 
+    // Mouse movement handler for reprise section
+    document.addEventListener('mousemove', onRepriseMouseMove);
+
+    // Click handler for reprise section
+    document.addEventListener('click', onRepriseClick);
+  }
+
+  function onRepriseClick(e) {
+    const currentSection = getCurrentSection();
+    if (currentSection.id !== 'reprise' || repriseTransitioning) return;
+
+    // A click counts as 3-5 fragments
+    const fragmentCount = 3 + Math.floor(Math.random() * 3); // 3, 4, or 5
+
+    if (repriseStage < 4) {
+      // Before blob spawns: only advance if click is ready (enough mouse movement accumulated)
+      if (repriseClickReady) {
+        // Reset for next stage
+        repriseClickReady = false;
+        repriseMovement = 0;
+        repriseTrailAccumulator = 0;
+        document.body.style.cursor = '';
+        stopReadySpawnInterval();
+        advanceRepriseStage();
+      }
+      // If not ready, clicking does nothing (no trail fragments, no movement added)
+    } else {
+      // Stage 4: blob is building - add to interactive spawn movement
+      // MOVEMENT_PER_FRAGMENT in blob.js is 35, so 3-5 fragments = 105-175px
+      const BLOB_MOVEMENT_PER_FRAGMENT = 35;
+      const movementValue = fragmentCount * BLOB_MOVEMENT_PER_FRAGMENT;
+
+      if (typeof Blob !== 'undefined') {
+        Blob.addInteractiveMovement(movementValue);
+      }
+    }
   }
 
   function jumpTo(sectionId) {
@@ -465,13 +671,34 @@ const Journey = (function() {
         const blobConfig = getCurrentBlobConfig();
         if (typeof Blob !== 'undefined' && blobConfig) {
           Blob.setMood(blobConfig.mood);
-          // Reset blob behavior flags when jumping
-          Blob.setShouldDespawn(false);
-          Blob.setShouldExpand(false);
-          Blob.setFragmentMultiplier(1);
-          Blob.setInteractiveSpawn(false);
-          Blob.setRadiusMultiplier(1);
           Blob.setDespawnLingerTime(0);
+
+          // Set blob state based on target section
+          if (sectionId === 'reprise') {
+            // Hide any existing blob - spawn and settings are handled by updateDOM's reprise sequence
+            Blob.hide();
+            // Reset to defaults, updateDOM setTimeout will set reprise-specific values before respawn
+            Blob.setShouldDespawn(false);
+            Blob.setFragmentMultiplier(1);
+            Blob.setInteractiveSpawn(false);
+            Blob.setShouldExpand(false);
+            Blob.setRadiusMultiplier(1);
+          } else if (sectionId === 'conclusion') {
+            // Conclusion starts with white screen, no blob
+            Blob.hide();
+            Blob.setShouldDespawn(false);
+            Blob.setShouldExpand(false);
+            Blob.setFragmentMultiplier(1);
+            Blob.setInteractiveSpawn(false);
+            Blob.setRadiusMultiplier(1);
+          } else {
+            // Reset blob behavior flags for other sections
+            Blob.setShouldDespawn(sectionId === 'desire');
+            Blob.setShouldExpand(false);
+            Blob.setFragmentMultiplier(1);
+            Blob.setInteractiveSpawn(false);
+            Blob.setRadiusMultiplier(1);
+          }
         }
 
         // Update DOM
@@ -482,12 +709,29 @@ const Journey = (function() {
       currentSectionIndex = index;
       currentSubsectionIndex = 0;
       if (typeof Blob !== 'undefined') {
-        Blob.setShouldDespawn(false);
-        Blob.setShouldExpand(false);
-        Blob.setFragmentMultiplier(1);
-        Blob.setInteractiveSpawn(false);
-        Blob.setRadiusMultiplier(1);
         Blob.setDespawnLingerTime(0);
+        if (sectionId === 'reprise') {
+          // Hide any existing blob - spawn and settings are handled by updateDOM's reprise sequence
+          Blob.hide();
+          Blob.setShouldDespawn(false);
+          Blob.setFragmentMultiplier(1);
+          Blob.setInteractiveSpawn(false);
+          Blob.setShouldExpand(false);
+          Blob.setRadiusMultiplier(1);
+        } else if (sectionId === 'conclusion') {
+          Blob.hide();
+          Blob.setShouldDespawn(false);
+          Blob.setShouldExpand(false);
+          Blob.setFragmentMultiplier(1);
+          Blob.setInteractiveSpawn(false);
+          Blob.setRadiusMultiplier(1);
+        } else {
+          Blob.setShouldDespawn(sectionId === 'desire');
+          Blob.setShouldExpand(false);
+          Blob.setFragmentMultiplier(1);
+          Blob.setInteractiveSpawn(false);
+          Blob.setRadiusMultiplier(1);
+        }
       }
       updateDOM();
     }
